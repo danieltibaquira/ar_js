@@ -12,17 +12,63 @@
         <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
 
         <a-assets>
-            <a-asset-item id="animated-asset" src="models/coupon_1/coupon_1.gltf"></a-asset-item>
+            <a-asset-item id="coupon_1" src="models/coupon_1/coupon_1.gltf"></a-asset-item>
         </a-assets>
 
-        <a-marker type='barcode' value='7'>
-            <a-box position='0 0.5 0' color="yellow"></a-box>
-        </a-marker>
+        <a-assets>
+            <a-asset-item id="coupon_2" src="models/coupon_2/coupon_2.gltf"></a-asset-item>
+        </a-assets>
 
-        <a-marker id="animated-marker" type='barcode' value='6'>
+        <a-assets>
+            <a-asset-item id="coupon_3" src="models/coupon_3/coupon_3.gltf"></a-asset-item>
+        </a-assets>
+
+        <a-assets>
+            <a-asset-item id="coupon_4" src="models/coupon_4/coupon_4.gltf"></a-asset-item>
+        </a-assets>
+
+        <a-assets>
+            <a-asset-item id="coupon_5" src="models/coupon_5/coupon_5.gltf"></a-asset-item>
+        </a-assets>
+
+
+        <a-marker id="animated-marker-1" type='barcode' value='1'>
             <a-entity
                 animation-mixer
-                gltf-model="#animated-asset"
+                gltf-model="#coupon_1"
+                scale="2 2 2">
+            </a-entity>
+        </a-marker>
+
+        <a-marker id="animated-marker-2" type='barcode' value='2'>
+            <a-entity
+                animation-mixer
+                gltf-model="#coupon_2"
+                scale="2 2 2">
+            </a-entity>
+        </a-marker>
+
+
+        <a-marker id="animated-marker-3" type='barcode' value='3'>
+            <a-entity
+                animation-mixer
+                gltf-model="#coupon_3"
+                scale="2 2 2">
+            </a-entity>
+        </a-marker>
+
+        <a-marker id="animated-marker-4" type='barcode' value='4'>
+            <a-entity
+                animation-mixer
+                gltf-model="#coupon_4"
+                scale="2 2 2">
+            </a-entity>
+        </a-marker>
+
+        <a-marker id="animated-marker-5" type='barcode' value='5'>
+            <a-entity
+                animation-mixer
+                gltf-model="#coupon_5"
                 scale="2 2 2">
             </a-entity>
         </a-marker>
