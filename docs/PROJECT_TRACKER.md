@@ -68,19 +68,22 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **77/77 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
-  · variations 14 · canvas2d 14 · SketchRunner 13).
+- Tests: **92/92 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
+  · variations 14 · canvas2d 14 · SketchRunner 13 · Registry 9 · Menu 6).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
 - Coverage on `src/render/**`: **99.33 % / 84.78 %**.
-- Coverage on `src/core/**`: **90.76 % / 75 %** — above the 70 % gate.
-- Build: `vite build` succeeds; bundle 8.77 kB raw / 3.70 kB gzip (B-01 size
+- Coverage on `src/core/**`: **92.89 % / 80.7 %** — above the 70 % gate;
+  `Registry.ts` is 100 / 100.
+- Coverage on `src/ui/**`: **100 % / 100 %**.
+- Build: `vite build` succeeds; bundle 11.28 kB raw / 4.51 kB gzip (B-01 size
   ceiling 600 kB gzip).
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01** through O phase.
-Next: **S-02** (sketch registry & menu) so multiple sketches can live side by
-side and be switched at runtime; or **R-02** (SVG export) in parallel.
+Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01, S-02** through O phase.
+Next: **S-03** (ParamPanel via Tweakpane) so the registered sketches expose
+parameters at runtime; or **S-04** (hash routing) for shareable links;
+**R-02** (SVG export) is parallel-safe.
 
 ## 5. Domain map (epics)
 
@@ -307,11 +310,23 @@ Common interface every design implements: `init`, `update`, `dispose`,
 #### S-02 — Sketch registry & menu
 Lazy registry keyed by id. UI lists available sketches; clicking switches.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/core/Registry.ts` (new), `src/ui/Menu.ts` (new)
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/core/Registry.ts`, `src/ui/Menu.ts`,
+  `tests/core/Registry.test.ts`, `tests/ui/Menu.test.ts`,
+  `src/main.ts` (demo wiring), `index.html` (menu styles)
 - **Acceptance**:
-  - [ ] Adding a sketch is one import + one `register()` call.
-  - [ ] Menu reflects registry without manual wiring.
+  - [x] Adding a sketch is one import + one `register()` call —
+        `registry.register(sketch)` keys by `sketch.id` and falls back to
+        `id` when `title` is omitted; duplicate ids throw.
+  - [x] Menu reflects registry without manual wiring — `Menu` subscribes to
+        the registry on construction and re-renders on every change. Active
+        marker survives re-renders. Verified by registering / unregistering
+        sketches *after* menu construction in `Menu.test.ts`.
+- **Notes**: Registry is intentionally non-lazy (instances, not factories).
+  Lazy loading via dynamic `import()` is a follow-up that can layer on top
+  without changing the menu surface. `main.ts` registers two demo sketches
+  (square + hex) so the menu has something to switch between. A pending
+  until B-02.
 
 #### S-03 — ParamPanel wrapper
 Thin facade over Tweakpane: per-sketch folder, persistent across reloads via
@@ -572,3 +587,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | G-05 implemented and optimised. `strapToRibbon`, `convexHull`, `rosetteHull` shipped in `src/geometry/variations.ts`. 14 new tests; 50/50 green. Coverage on `variations.ts`: 100 % lines / 96.66 % branches. |
 | 2026-05-06 | R-01 implemented and optimised. `renderToContext`, `renderCanvas2D`, `resizeCanvas` in `src/render/canvas2d.ts`. 14 new tests using a hand-rolled mock context (happy-dom's canvas2d is incomplete). 64/64 green. Coverage on `canvas2d.ts`: 99.33 % lines / 84.78 % branches. `vite build` succeeds at 2.78 kB gzip. `src/main.ts` rewritten as a temporary demo (4×4 hankin at π/4) so `npm run dev` shows a real pattern. tsconfig `noEmit: true` added so `tsc -b` no longer leaks `.js` siblings beside source. |
 | 2026-05-06 | S-01 implemented and optimised. `SketchRunner` class plus `Sketch` / `SketchParam` / `SketchContext` types in `src/core/SketchRunner.ts`. 13 new tests covering mount/unmount, sketch switching, defineParams plumbing, setParam, the 50-cycle no-leak loop, dispose-after-dispose guards, `prefers-reduced-motion` (initial suppression + runtime resume on `change`), `requestPaint` escape hatch, async-init supersession. 77/77 green. Coverage on `SketchRunner.ts`: 90.76 % lines / 75 % branches. `src/main.ts` refactored to mount its hankin demo through the runner. |
+| 2026-05-06 | S-02 implemented and optimised. `SketchRegistry` (`src/core/Registry.ts`) and `Menu` (`src/ui/Menu.ts`). 9 + 6 new tests; 92/92 green. Both new files at 100 % lines / 100 % branches. `main.ts` registers `hankin-square` and `hankin-hex` and routes menu selection through the runner; `index.html` gains menu styles. Bundle 4.51 kB gzip. |
