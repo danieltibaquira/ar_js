@@ -80,8 +80,9 @@ Notation in this file:
 - Coverage on `src/ui/**`: **92.38 % / 87.5 %** — `Menu.ts` 100 / 100,
   `ParamPanel.ts` 90 / 84.78 (uncovered tail is the localStorage default and
   one limb of the Tweakpane adapter that happy-dom doesn't exercise).
-- Build: `vite build` succeeds; bundle 166.1 kB raw / 37 kB gzip (Tweakpane
-  is the bulk; B-01 size ceiling 600 kB gzip).
+- Build: `vite build` succeeds; bundle 693 kB raw / 170 kB gzip (three.js +
+  OrbitControls + Tweakpane are the bulk; B-01 size ceiling 600 kB gzip,
+  comfortably under). Code-splitting for 2D-only sketches is a follow-up.
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
@@ -687,3 +688,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | T-01 implemented and optimised. `Scene3D` in `src/core/three/Scene.ts` with perspective + orthographic cameras, default lighting rig, DPR-aware resize, render-on-dirty `invalidate()` and opt-in `setContinuousRendering(true)`. `RendererLike` is injectable so tests use a stub instead of WebGL; production wires `THREE.WebGLRenderer`. 9 new tests; 114/114 green. Coverage on `Scene.ts`: 93.66 % lines. |
 | 2026-05-06 | R-02 implemented and optimised. `renderToSVG` in `src/render/svg.ts` — pure string output, deterministic fixed-precision coordinate formatting, optional background + construction-line group, single `<path>` per strap group. 12 new tests; 126/126 green. Coverage on `svg.ts`: 99.32 % lines / 84.09 % branches. |
 | 2026-05-06 | P-03 + T-02 + T-03 + S-04 shipped in parallel. P-03: `truncatedSquareTiling` (4.8.8) and `trihexagonalTiling` (3.6.3.6) in `src/geometry/archimedean.ts`; main.ts registers a third sketch. T-02: `extrudeStrapwork` in `src/core/three/extrude.ts` — union-find on endpoints + per-component `BufferGeometryUtils.mergeGeometries`; `mergeVertices` clean. T-03: `createHankinShaderMaterial` in `src/materials/HankinShaderMaterial.ts` — branchless line-segment SDF + smoothstep AA; visual parity deferred to B-03. S-04: `parseHash` / `serializeHash` / `HashRouter` in `src/core/HashRouter.ts`; main.ts boots from URL and round-trips param edits. 41 new tests; 167/167 green. |
+| 2026-05-06 | 3D demo wiring in main.ts. New `makeStrapwork3DSketch` factory composes `Scene3D` + `extrudeStrapwork` + `OrbitControls`; angle / depth / strapWidth params live-rebuild on change with a hash-key gate so the rebuild only runs when params actually shift. Strapwork is centred at the origin via Box3 so framing stays stable across tilings and depths. Registers `strapwork-3d` (3×3 square base) — v1.0 §2.4 ("at least one design renders in 3D") is now visible end-to-end. Bundle 170 kB gzip (three.js + OrbitControls; B-01 ceiling 600 kB). |

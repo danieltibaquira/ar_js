@@ -5,10 +5,14 @@
  * (Tweakpane), persisted per-sketch in localStorage.
  */
 
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { hankinPattern } from './geometry/hankin';
 import { hexagonalTiling, squareTiling } from './geometry/tilings';
 import { truncatedSquareTiling } from './geometry/archimedean';
 import { renderToContext, resizeCanvas } from './render/canvas2d';
+import { extrudeStrapwork } from './core/three/extrude';
+import { Scene3D } from './core/three/Scene';
 import { SketchRunner, type Sketch, type SketchParam, type SketchParamValue } from './core/SketchRunner';
 import { SketchRegistry } from './core/Registry';
 import { HashRouter } from './core/HashRouter';
@@ -96,6 +100,157 @@ function makeHankinSketch(
   };
 }
 
+interface Strapwork3DState {
+  readonly scene: Scene3D;
+  readonly controls: OrbitControls;
+  readonly material: THREE.Material;
+  readonly group: THREE.Group;
+  readonly tiling: Tiling;
+  readonly onResize: () => void;
+  readonly onControlsChange: () => void;
+  rebuild(): void;
+  lastKey: string;
+}
+
+function makeStrapwork3DSketch(
+  id: string,
+  title: string,
+  buildTiling: () => Tiling,
+): Sketch {
+  let state: Strapwork3DState | null = null;
+
+  return {
+    id,
+    title,
+    defineParams: () => [
+      {
+        key: 'angle',
+        type: 'number',
+        default: Math.PI / 4,
+        min: Math.PI / 12,
+        max: (5 * Math.PI) / 12,
+        step: 0.005,
+        label: 'Contact angle',
+      },
+      {
+        key: 'depth',
+        type: 'number',
+        default: 0.15,
+        min: 0.02,
+        max: 0.6,
+        step: 0.01,
+        label: 'Extrusion depth',
+      },
+      {
+        key: 'strapWidth',
+        type: 'number',
+        default: 0.12,
+        min: 0.02,
+        max: 0.4,
+        step: 0.01,
+        label: 'Strap width',
+      },
+    ],
+    init(ctx) {
+      const scene = new Scene3D({ host: ctx.host });
+      scene.perspectiveCamera.position.set(3, 4, 6);
+      scene.perspectiveCamera.lookAt(0, 0, 0);
+      // A second softer fill from the opposite side so the gold reads.
+      const fill = new THREE.DirectionalLight(0xffd9a3, 0.35);
+      fill.position.set(-4, 2, -3);
+      scene.scene.add(fill);
+
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xc6a85c,
+        metalness: 0.55,
+        roughness: 0.4,
+      });
+      const group = new THREE.Group();
+      scene.scene.add(group);
+      const tiling = buildTiling();
+
+      const controls = new OrbitControls(
+        scene.perspectiveCamera,
+        scene.renderer.domElement,
+      );
+      controls.target.set(0, 0, 0);
+      controls.update();
+      const onControlsChange = () => scene.invalidate();
+      controls.addEventListener('change', onControlsChange);
+
+      const onResize = () => {
+        scene.resize();
+      };
+      window.addEventListener('resize', onResize);
+
+      const rebuild = (): void => {
+        const angle = ctx.params['angle'] as number;
+        const depth = ctx.params['depth'] as number;
+        const strapWidth = ctx.params['strapWidth'] as number;
+        const pattern = hankinPattern(tiling, { contactAngle: angle });
+        const geometries = extrudeStrapwork(pattern, { strapWidth, depth });
+        for (const child of group.children) {
+          const mesh = child as THREE.Mesh;
+          mesh.geometry.dispose();
+        }
+        group.clear();
+        for (const geom of geometries) {
+          group.add(new THREE.Mesh(geom, material));
+        }
+        // Centre the strapwork at the origin so the camera framing is stable
+        // regardless of tiling extent or extrusion depth.
+        const bbox = new THREE.Box3().setFromObject(group);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        group.position.set(-center.x, -center.y, -center.z);
+        scene.invalidate();
+      };
+
+      rebuild();
+
+      state = {
+        scene,
+        controls,
+        material,
+        group,
+        tiling,
+        onResize,
+        onControlsChange,
+        rebuild,
+        lastKey: paramKey3D(ctx),
+      };
+    },
+    update(ctx) {
+      if (!state) return;
+      const key = paramKey3D(ctx);
+      if (key !== state.lastKey) {
+        state.rebuild();
+        state.lastKey = key;
+      }
+    },
+    dispose() {
+      if (!state) return;
+      window.removeEventListener('resize', state.onResize);
+      state.controls.removeEventListener('change', state.onControlsChange);
+      state.controls.dispose();
+      for (const child of state.group.children) {
+        const mesh = child as THREE.Mesh;
+        mesh.geometry.dispose();
+      }
+      state.group.clear();
+      state.material.dispose();
+      state.scene.dispose();
+      state = null;
+    },
+  };
+}
+
+function paramKey3D(ctx: {
+  params: Readonly<Record<string, SketchParamValue>>;
+}): string {
+  return `${ctx.params['angle']}|${ctx.params['depth']}|${ctx.params['strapWidth']}`;
+}
+
 const root = document.getElementById('app');
 if (root) {
   const menuHost = document.createElement('div');
@@ -121,6 +276,11 @@ if (root) {
   registry.register(
     makeHankinSketch('hankin-488', 'Hankin · 4.8.8', () =>
       truncatedSquareTiling({ rows: 3, cols: 3, size: 1 }),
+    ),
+  );
+  registry.register(
+    makeStrapwork3DSketch('strapwork-3d', 'Strapwork · 3D', () =>
+      squareTiling({ rows: 3, cols: 3, size: 1 }),
     ),
   );
 
