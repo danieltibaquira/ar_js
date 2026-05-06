@@ -13,6 +13,8 @@ import { truncatedSquareTiling } from './geometry/archimedean';
 import { renderToContext, resizeCanvas } from './render/canvas2d';
 import { extrudeStrapwork } from './core/three/extrude';
 import { Scene3D } from './core/three/Scene';
+import { createHankinShaderMaterial, type HankinShaderResult } from './materials/HankinShaderMaterial';
+import { createGraffitiMaterial, type GraffitiResult } from './materials/GraffitiMaterial';
 import { SketchRunner, type Sketch, type SketchParam, type SketchParamValue } from './core/SketchRunner';
 import { SketchRegistry } from './core/Registry';
 import { HashRouter } from './core/HashRouter';
@@ -251,6 +253,330 @@ function paramKey3D(ctx: {
   return `${ctx.params['angle']}|${ctx.params['depth']}|${ctx.params['strapWidth']}`;
 }
 
+interface PatternSurfaceState {
+  readonly scene: Scene3D;
+  readonly tiling: Tiling;
+  readonly shader: HankinShaderResult;
+  readonly mesh: THREE.Mesh;
+  readonly geometry: THREE.BufferGeometry;
+  readonly controls: OrbitControls;
+  readonly onResize: () => void;
+  readonly onControlsChange: () => void;
+  lastAngle: number;
+  lastStrap: number;
+  lastAa: number;
+}
+
+function makePatternSurfaceSketch(
+  id: string,
+  title: string,
+  buildTiling: () => Tiling,
+): Sketch {
+  let state: PatternSurfaceState | null = null;
+
+  return {
+    id,
+    title,
+    defineParams: () => [
+      {
+        key: 'angle',
+        type: 'number',
+        default: Math.PI / 4,
+        min: Math.PI / 12,
+        max: (5 * Math.PI) / 12,
+        step: 0.005,
+        label: 'Contact angle',
+      },
+      {
+        key: 'strapWidth',
+        type: 'number',
+        default: 0.06,
+        min: 0.005,
+        max: 0.25,
+        step: 0.005,
+        label: 'Strap width',
+      },
+      {
+        key: 'aaWidth',
+        type: 'number',
+        default: 0.005,
+        min: 0.001,
+        max: 0.05,
+        step: 0.001,
+        label: 'AA width',
+      },
+    ],
+    init(ctx) {
+      const scene = new Scene3D({ host: ctx.host });
+      scene.perspectiveCamera.position.set(0, 0, 4);
+      scene.perspectiveCamera.lookAt(0, 0, 0);
+
+      const tiling = buildTiling();
+      const initialAngle = ctx.params['angle'] as number;
+      const initialStrap = ctx.params['strapWidth'] as number;
+      const initialAa = ctx.params['aaWidth'] as number;
+      const pattern = hankinPattern(tiling, { contactAngle: initialAngle });
+      const shader = createHankinShaderMaterial(pattern, {
+        strapWidth: initialStrap,
+        aaWidth: initialAa,
+      });
+
+      // Plane sized to the pattern's aspect ratio, centred on the origin.
+      const w = tiling.bounds.maxX - tiling.bounds.minX;
+      const h = tiling.bounds.maxY - tiling.bounds.minY;
+      const fitTo = 3;
+      const scale = Math.min(fitTo / w, fitTo / h);
+      const planeWidth = w * scale;
+      const planeHeight = h * scale;
+      const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+      const mesh = new THREE.Mesh(geometry, shader.material);
+      scene.scene.add(mesh);
+
+      const controls = new OrbitControls(
+        scene.perspectiveCamera,
+        scene.renderer.domElement,
+      );
+      controls.target.set(0, 0, 0);
+      controls.update();
+      const onControlsChange = () => scene.invalidate();
+      controls.addEventListener('change', onControlsChange);
+
+      const onResize = () => scene.resize();
+      window.addEventListener('resize', onResize);
+
+      scene.invalidate();
+
+      state = {
+        scene,
+        tiling,
+        shader,
+        mesh,
+        geometry,
+        controls,
+        onResize,
+        onControlsChange,
+        lastAngle: initialAngle,
+        lastStrap: initialStrap,
+        lastAa: initialAa,
+      };
+    },
+    update(ctx) {
+      if (!state) return;
+      const angle = ctx.params['angle'] as number;
+      const sw = ctx.params['strapWidth'] as number;
+      const aa = ctx.params['aaWidth'] as number;
+      let dirty = false;
+      if (angle !== state.lastAngle) {
+        const newPattern = hankinPattern(state.tiling, { contactAngle: angle });
+        state.shader.setPattern(newPattern);
+        state.lastAngle = angle;
+        dirty = true;
+      }
+      if (sw !== state.lastStrap) {
+        state.shader.setStrapWidth(sw);
+        state.lastStrap = sw;
+        dirty = true;
+      }
+      if (aa !== state.lastAa) {
+        state.shader.setAaWidth(aa);
+        state.lastAa = aa;
+        dirty = true;
+      }
+      if (dirty) state.scene.invalidate();
+    },
+    dispose() {
+      if (!state) return;
+      window.removeEventListener('resize', state.onResize);
+      state.controls.removeEventListener('change', state.onControlsChange);
+      state.controls.dispose();
+      state.geometry.dispose();
+      state.shader.dispose();
+      state.scene.dispose();
+      state = null;
+    },
+  };
+}
+
+interface GraffitiSketchState {
+  readonly scene: Scene3D;
+  readonly tiling: Tiling;
+  readonly material: GraffitiResult;
+  readonly mesh: THREE.Mesh;
+  readonly geometry: THREE.BufferGeometry;
+  readonly controls: OrbitControls;
+  readonly onResize: () => void;
+  readonly onControlsChange: () => void;
+  lastAngle: number;
+  lastStrap: number;
+  lastBleed: number;
+  lastDrip: number;
+  lastFade: number;
+}
+
+function makeGraffitiWallSketch(
+  id: string,
+  title: string,
+  buildTiling: () => Tiling,
+): Sketch {
+  let state: GraffitiSketchState | null = null;
+
+  return {
+    id,
+    title,
+    defineParams: () => [
+      {
+        key: 'angle',
+        type: 'number',
+        default: Math.PI / 4,
+        min: Math.PI / 12,
+        max: (5 * Math.PI) / 12,
+        step: 0.005,
+        label: 'Contact angle',
+      },
+      {
+        key: 'strapWidth',
+        type: 'number',
+        default: 0.06,
+        min: 0.005,
+        max: 0.25,
+        step: 0.005,
+        label: 'Strap width',
+      },
+      {
+        key: 'bleed',
+        type: 'number',
+        default: 0.012,
+        min: 0,
+        max: 0.05,
+        step: 0.001,
+        label: 'Bleed',
+      },
+      {
+        key: 'drip',
+        type: 'number',
+        default: 0.25,
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: 'Drip',
+      },
+      {
+        key: 'fade',
+        type: 'number',
+        default: 0.95,
+        min: 0,
+        max: 1,
+        step: 0.01,
+        label: 'Fade',
+      },
+    ],
+    init(ctx) {
+      const scene = new Scene3D({ host: ctx.host });
+      scene.perspectiveCamera.position.set(0, 0, 4);
+      scene.perspectiveCamera.lookAt(0, 0, 0);
+
+      const tiling = buildTiling();
+      const angle = ctx.params['angle'] as number;
+      const strapWidth = ctx.params['strapWidth'] as number;
+      const bleed = ctx.params['bleed'] as number;
+      const drip = ctx.params['drip'] as number;
+      const fade = ctx.params['fade'] as number;
+      const pattern = hankinPattern(tiling, { contactAngle: angle });
+      const material = createGraffitiMaterial(pattern, {
+        strapWidth,
+        bleed,
+        drip,
+        fade,
+      });
+
+      const w = tiling.bounds.maxX - tiling.bounds.minX;
+      const h = tiling.bounds.maxY - tiling.bounds.minY;
+      const fitTo = 3;
+      const scale = Math.min(fitTo / w, fitTo / h);
+      const geometry = new THREE.PlaneGeometry(w * scale, h * scale);
+      const mesh = new THREE.Mesh(geometry, material.material);
+      scene.scene.add(mesh);
+
+      const controls = new OrbitControls(
+        scene.perspectiveCamera,
+        scene.renderer.domElement,
+      );
+      controls.target.set(0, 0, 0);
+      controls.update();
+      const onControlsChange = () => scene.invalidate();
+      controls.addEventListener('change', onControlsChange);
+
+      const onResize = () => scene.resize();
+      window.addEventListener('resize', onResize);
+
+      scene.invalidate();
+
+      state = {
+        scene,
+        tiling,
+        material,
+        mesh,
+        geometry,
+        controls,
+        onResize,
+        onControlsChange,
+        lastAngle: angle,
+        lastStrap: strapWidth,
+        lastBleed: bleed,
+        lastDrip: drip,
+        lastFade: fade,
+      };
+    },
+    update(ctx) {
+      if (!state) return;
+      const angle = ctx.params['angle'] as number;
+      const sw = ctx.params['strapWidth'] as number;
+      const bl = ctx.params['bleed'] as number;
+      const dr = ctx.params['drip'] as number;
+      const fd = ctx.params['fade'] as number;
+      let dirty = false;
+      if (angle !== state.lastAngle) {
+        state.material.setPattern(
+          hankinPattern(state.tiling, { contactAngle: angle }),
+        );
+        state.lastAngle = angle;
+        dirty = true;
+      }
+      if (sw !== state.lastStrap) {
+        state.material.setStrapWidth(sw);
+        state.lastStrap = sw;
+        dirty = true;
+      }
+      if (bl !== state.lastBleed) {
+        state.material.setBleed(bl);
+        state.lastBleed = bl;
+        dirty = true;
+      }
+      if (dr !== state.lastDrip) {
+        state.material.setDrip(dr);
+        state.lastDrip = dr;
+        dirty = true;
+      }
+      if (fd !== state.lastFade) {
+        state.material.setFade(fd);
+        state.lastFade = fd;
+        dirty = true;
+      }
+      if (dirty) state.scene.invalidate();
+    },
+    dispose() {
+      if (!state) return;
+      window.removeEventListener('resize', state.onResize);
+      state.controls.removeEventListener('change', state.onControlsChange);
+      state.controls.dispose();
+      state.geometry.dispose();
+      state.material.dispose();
+      state.scene.dispose();
+      state = null;
+    },
+  };
+}
+
 const root = document.getElementById('app');
 if (root) {
   const menuHost = document.createElement('div');
@@ -281,6 +607,16 @@ if (root) {
   registry.register(
     makeStrapwork3DSketch('strapwork-3d', 'Strapwork · 3D', () =>
       squareTiling({ rows: 3, cols: 3, size: 1 }),
+    ),
+  );
+  registry.register(
+    makePatternSurfaceSketch('pattern-surface', 'Pattern · Surface (shader)', () =>
+      squareTiling({ rows: 4, cols: 4, size: 1 }),
+    ),
+  );
+  registry.register(
+    makeGraffitiWallSketch('graffiti-wall', 'Graffiti · Wall', () =>
+      squareTiling({ rows: 4, cols: 4, size: 1 }),
     ),
   );
 

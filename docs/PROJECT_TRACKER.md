@@ -496,17 +496,39 @@ Triplanar mapping so the pattern stays continuous on irregular geometry
 #### M-01 — Concrete / wall base
 Procedural normal + roughness for a matte painted wall. Uses Worley noise.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [-] · I [x] · G [-] · O [-] · A [ ]
+- Files: inlined into `src/materials/GraffitiMaterial.ts` as the wall
+  base. A standalone `ConcreteMaterial.ts` is a follow-up if anything
+  beyond the graffiti sketch needs it.
 - **Acceptance**:
-  - [ ] No visible tiling at 4× repetition.
+  - [x] No visible tiling at 4× repetition — Worley noise across UVs at
+        `u_wallNoise` scale (default 12) breaks up any periodic banding;
+        verified visually on the `graffiti-wall` sketch.
+- **Notes**: R/G/O skipped — the wall is one fragment-shader chunk inside
+  M-02 with no standalone surface area. If a future material reuses it
+  the chunk should be extracted to a shared GLSL include.
 
 #### M-02 — Graffiti shader
 Pattern on top of M-01 with FBM bleed at edges, slight colour variation,
 optional drip mask.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/materials/GraffitiMaterial.ts`,
+  `tests/materials/GraffitiMaterial.test.ts`,
+  `src/main.ts` (registers `graffiti-wall`)
 - **Acceptance**:
-  - [ ] Hand toggleable parameters: bleed, drip, fade, palette.
+  - [x] Hand toggleable parameters: bleed, drip, fade, palette — every
+        knob is plumbed into a uniform with a setter
+        (`setBleed / setDrip / setFade / setPaintColor /
+        setPaintVariationColor / setWallColor`), verified by reading the
+        uniform back after each call.
+- **Notes**: One ShaderMaterial. Wall base inlines M-01 (Worley-driven
+  shade across UVs). Pattern overlay reuses the line-segment SDF from
+  T-03 but the strap edge is jittered by FBM in pattern-space (`u_bleed`)
+  for a paint-rather-than-vector look; vertical FBM streaks gated by
+  `u_drip` carve drips through the strap, and `u_fade` scales the
+  overall alpha. `setPattern` rebuilds the segment texture and bounds
+  on contact-angle changes. A pending until B-02.
 
 #### M-03 — Weathered / aged variant
 Pattern degraded by an erosion mask; some straps broken, some discoloured.
@@ -689,3 +711,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | R-02 implemented and optimised. `renderToSVG` in `src/render/svg.ts` — pure string output, deterministic fixed-precision coordinate formatting, optional background + construction-line group, single `<path>` per strap group. 12 new tests; 126/126 green. Coverage on `svg.ts`: 99.32 % lines / 84.09 % branches. |
 | 2026-05-06 | P-03 + T-02 + T-03 + S-04 shipped in parallel. P-03: `truncatedSquareTiling` (4.8.8) and `trihexagonalTiling` (3.6.3.6) in `src/geometry/archimedean.ts`; main.ts registers a third sketch. T-02: `extrudeStrapwork` in `src/core/three/extrude.ts` — union-find on endpoints + per-component `BufferGeometryUtils.mergeGeometries`; `mergeVertices` clean. T-03: `createHankinShaderMaterial` in `src/materials/HankinShaderMaterial.ts` — branchless line-segment SDF + smoothstep AA; visual parity deferred to B-03. S-04: `parseHash` / `serializeHash` / `HashRouter` in `src/core/HashRouter.ts`; main.ts boots from URL and round-trips param edits. 41 new tests; 167/167 green. |
 | 2026-05-06 | 3D demo wiring in main.ts. New `makeStrapwork3DSketch` factory composes `Scene3D` + `extrudeStrapwork` + `OrbitControls`; angle / depth / strapWidth params live-rebuild on change with a hash-key gate so the rebuild only runs when params actually shift. Strapwork is centred at the origin via Box3 so framing stays stable across tilings and depths. Registers `strapwork-3d` (3×3 square base) — v1.0 §2.4 ("at least one design renders in 3D") is now visible end-to-end. Bundle 170 kB gzip (three.js + OrbitControls; B-01 ceiling 600 kB). |
+| 2026-05-06 | Pattern-surface (T-03) + graffiti-wall (M-02) sketches wired in main.ts. `makePatternSurfaceSketch` puts `createHankinShaderMaterial` on a fitted `PlaneGeometry`; `makeGraffitiWallSketch` does the same with `createGraffitiMaterial` (wall base + Hankin SDF + FBM bleed + drip + fade). Both expose the live knobs through ParamPanel; `setPattern` swaps the segment texture on angle change. Registers `pattern-surface` and `graffiti-wall` — v1.0 §2.5 ("at least one design renders the pattern as a procedural texture on a 3D surface") is now visible end-to-end. New `src/materials/GraffitiMaterial.ts` + tests; M-01 inlined as the wall base. 7 new tests; 174/174 green. Bundle 173.67 kB gzip. |
