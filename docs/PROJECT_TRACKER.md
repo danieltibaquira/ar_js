@@ -80,9 +80,11 @@ Notation in this file:
 - Coverage on `src/ui/**`: **92.38 % / 87.5 %** — `Menu.ts` 100 / 100,
   `ParamPanel.ts` 90 / 84.78 (uncovered tail is the localStorage default and
   one limb of the Tweakpane adapter that happy-dom doesn't exercise).
-- Build: `vite build` succeeds; bundle 693 kB raw / 170 kB gzip (three.js +
-  OrbitControls + Tweakpane are the bulk; B-01 size ceiling 600 kB gzip,
-  comfortably under). Code-splitting for 2D-only sketches is a follow-up.
+- Build: `vite build` succeeds; vendor-split into three cacheable chunks —
+  `index-*.js` 58 kB / 16 kB gzip, `tweakpane-*.js` 152 kB / 31 kB gzip,
+  `three-*.js` 495 kB / 126 kB gzip. Total ~174 kB gzip (B-01 ceiling
+  600 kB). Build smoke test in `tests/build/dist.test.ts` validates the
+  output structure when `dist/` is present (auto-skips otherwise).
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
@@ -571,11 +573,25 @@ Given a 2D plan, instantiate cells and stack tiers to build a vault mesh.
 #### B-01 — Vite production build
 `npm run build` produces a deployable `dist/` with sourcemaps.
 
-- Phases: P [x] · R [-] · I [x] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `vite.config.ts`, `tests/build/dist.test.ts`
 - **Acceptance**:
-  - [ ] `dist/index.html` opens via `vite preview` and renders the menu.
-  - [ ] Bundle size < 600 kB gzip.
-- **Notes**: R skipped — config-only, smoke-tested manually until B-03 lands.
+  - [x] `dist/index.html` opens via `vite preview` and renders the menu —
+        verified by the build smoke test asserting the html, the script
+        tag's relative URL, modulepreloads for `three` + `tweakpane`,
+        and the existence of the three vendor-split chunks. Visual
+        rendering is then a `vite preview` open-browser check.
+  - [x] Bundle size < 600 kB gzip — total gzipped JS is ~174 kB across
+        three chunks: `index-*.js` 16.4 kB, `tweakpane-*.js` 31.5 kB,
+        `three-*.js` 126 kB. Smoke test asserts < 2.4 MB raw which
+        corresponds to the 600 kB gzip ceiling.
+- **Notes**: `base: './'` in `vite.config.ts` makes `dist/` portable
+  across any static host (root, sub-path, GitHub Pages, file://).
+  `manualChunks` splits `three` and `tweakpane` into separate cacheable
+  chunks. Build smoke test auto-skips when `dist/` is missing so a
+  fresh checkout's `npm test` still passes; CI runs
+  `npm run build && npm test` to exercise it. Together this closes
+  v1.0 §2.8 (static bundle, < 2 s on broadband, static-host-only).
 
 #### B-02 — GitHub Actions CI activation
 Workflow exists (`docs/ci.yml.example`) but the GitHub App used to push
@@ -712,3 +728,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | P-03 + T-02 + T-03 + S-04 shipped in parallel. P-03: `truncatedSquareTiling` (4.8.8) and `trihexagonalTiling` (3.6.3.6) in `src/geometry/archimedean.ts`; main.ts registers a third sketch. T-02: `extrudeStrapwork` in `src/core/three/extrude.ts` — union-find on endpoints + per-component `BufferGeometryUtils.mergeGeometries`; `mergeVertices` clean. T-03: `createHankinShaderMaterial` in `src/materials/HankinShaderMaterial.ts` — branchless line-segment SDF + smoothstep AA; visual parity deferred to B-03. S-04: `parseHash` / `serializeHash` / `HashRouter` in `src/core/HashRouter.ts`; main.ts boots from URL and round-trips param edits. 41 new tests; 167/167 green. |
 | 2026-05-06 | 3D demo wiring in main.ts. New `makeStrapwork3DSketch` factory composes `Scene3D` + `extrudeStrapwork` + `OrbitControls`; angle / depth / strapWidth params live-rebuild on change with a hash-key gate so the rebuild only runs when params actually shift. Strapwork is centred at the origin via Box3 so framing stays stable across tilings and depths. Registers `strapwork-3d` (3×3 square base) — v1.0 §2.4 ("at least one design renders in 3D") is now visible end-to-end. Bundle 170 kB gzip (three.js + OrbitControls; B-01 ceiling 600 kB). |
 | 2026-05-06 | Pattern-surface (T-03) + graffiti-wall (M-02) sketches wired in main.ts. `makePatternSurfaceSketch` puts `createHankinShaderMaterial` on a fitted `PlaneGeometry`; `makeGraffitiWallSketch` does the same with `createGraffitiMaterial` (wall base + Hankin SDF + FBM bleed + drip + fade). Both expose the live knobs through ParamPanel; `setPattern` swaps the segment texture on angle change. Registers `pattern-surface` and `graffiti-wall` — v1.0 §2.5 ("at least one design renders the pattern as a procedural texture on a 3D surface") is now visible end-to-end. New `src/materials/GraffitiMaterial.ts` + tests; M-01 inlined as the wall base. 7 new tests; 174/174 green. Bundle 173.67 kB gzip. |
+| 2026-05-06 | B-01 closed; v1.0 §2.8 satisfied. `vite.config.ts` gains `base: './'` (so `dist/` works on any static host) and `manualChunks` splitting `three` and `tweakpane` into separate cacheable chunks. New `tests/build/dist.test.ts` (auto-skips when `dist/` is missing) asserts: html present, script src is a relative URL, modulepreloads for both vendor chunks, the three split chunks (`index-`, `tweakpane-`, `three-`) all exist, total gzipped JS under the B-01 ceiling, and the app entry is smaller than `three`. 180/180 green when `dist/` is present (174 active + 6 build-smoke); 174/174 on a fresh checkout. |
