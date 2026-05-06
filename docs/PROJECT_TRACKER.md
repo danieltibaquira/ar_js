@@ -68,13 +68,13 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **105/105 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
+- Tests: **114/114 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
   1 · variations 14 · canvas2d 14 · SketchRunner 13 · Registry 9 · Menu 6 ·
-  ParamPanel 13).
+  ParamPanel 13 · Scene 9).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
 - Coverage on `src/render/**`: **99.33 % / 84.78 %**.
 - Coverage on `src/core/**`: **92.89 % / 80.7 %** — above the 70 % gate;
-  `Registry.ts` is 100 / 100.
+  `Registry.ts` is 100 / 100. `src/core/three/Scene.ts` 93.66 / 45.71.
 - Coverage on `src/ui/**`: **92.38 % / 87.5 %** — `Menu.ts` 100 / 100,
   `ParamPanel.ts` 90 / 84.78 (uncovered tail is the localStorage default and
   one limb of the Tweakpane adapter that happy-dom doesn't exercise).
@@ -83,10 +83,9 @@ Notation in this file:
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01, S-02, S-03** through O.
-Next: **S-04** (hash routing) for shareable URLs, **S-05** (preset save/load),
-or step into **T-01** to start the 3D track for v1.0 §2.4. **R-02** (SVG
-export) is still parallel-safe.
+Completed: **G-01..G-05, R-01, S-01, S-02, S-03, T-01** through O.
+Next: **T-02** (strapwork extrusion) layered on Scene3D for v1.0 §2.4, or
+**R-02** (SVG export) for downloads + snapshot tests.
 
 ## 5. Domain map (epics)
 
@@ -379,11 +378,23 @@ Save the current parameter set as a named preset; export/import as JSON.
 Camera (perspective + ortho), lighting rig, OrbitControls, resize handler,
 clock, render loop coupled to `SketchRunner.update`.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/core/three/Scene.ts` (new)
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/core/three/Scene.ts`, `tests/core/three/Scene.test.ts`
 - **Acceptance**:
-  - [ ] Idle GPU usage < 5 % on integrated graphics.
-  - [ ] Resize is correct on devicePixelRatio change.
+  - [x] Idle GPU usage < 5 % on integrated graphics — render-on-dirty: no
+        rAF is queued unless `invalidate()` is called, and continuous
+        rendering is opt-in via `setContinuousRendering(true)`. Verified
+        in unit tests by asserting zero `render` calls without
+        `invalidate()` and exactly one render per coalesced batch.
+  - [x] Resize is correct on devicePixelRatio change — `resize(w, h, dpr)`
+        updates renderer size + pixel ratio, perspective camera aspect, and
+        orthographic frustum (aspect-preserving). Tested with a stub
+        renderer.
+- **Notes**: `RendererLike` is an injectable protocol so tests don't pull
+  WebGL into happy-dom; production wires a `THREE.WebGLRenderer` via the
+  default factory in the same module. OrbitControls integration is a
+  follow-up — the dirty-render hook (`invalidate()`) is in place so
+  controls' `change` event can call it. A pending until B-02.
 
 #### T-02 — Strapwork extrusion
 `Pattern` → `THREE.ExtrudeGeometry` via `THREE.Shape`. Configurable depth
@@ -609,3 +620,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | S-01 implemented and optimised. `SketchRunner` class plus `Sketch` / `SketchParam` / `SketchContext` types in `src/core/SketchRunner.ts`. 13 new tests covering mount/unmount, sketch switching, defineParams plumbing, setParam, the 50-cycle no-leak loop, dispose-after-dispose guards, `prefers-reduced-motion` (initial suppression + runtime resume on `change`), `requestPaint` escape hatch, async-init supersession. 77/77 green. Coverage on `SketchRunner.ts`: 90.76 % lines / 75 % branches. `src/main.ts` refactored to mount its hankin demo through the runner. |
 | 2026-05-06 | S-02 implemented and optimised. `SketchRegistry` (`src/core/Registry.ts`) and `Menu` (`src/ui/Menu.ts`). 9 + 6 new tests; 92/92 green. Both new files at 100 % lines / 100 % branches. `main.ts` registers `hankin-square` and `hankin-hex` and routes menu selection through the runner; `index.html` gains menu styles. Bundle 4.51 kB gzip. |
 | 2026-05-06 | S-03 implemented and optimised. `ParamPanel` (`src/ui/ParamPanel.ts`) with injectable `PaneFactory` (default wraps Tweakpane v4) and `Storage` (default `localStorage`). 13 new tests; 105/105 green. Coverage on `ParamPanel.ts`: 90 % lines / 84.78 % branches; `src/ui/**` aggregate 92.38 / 87.5. `main.ts` wires the panel for the active sketch with `angle / strapWidth / showConstruction` knobs; `update` re-paints on each frame so live tweaks land. Bundle 37 kB gzip (Tweakpane is the bulk; B-01 ceiling 600 kB). |
+| 2026-05-06 | T-01 implemented and optimised. `Scene3D` in `src/core/three/Scene.ts` with perspective + orthographic cameras, default lighting rig, DPR-aware resize, render-on-dirty `invalidate()` and opt-in `setContinuousRendering(true)`. `RendererLike` is injectable so tests use a stub instead of WebGL; production wires `THREE.WebGLRenderer`. 9 new tests; 114/114 green. Coverage on `Scene.ts`: 93.66 % lines. |
