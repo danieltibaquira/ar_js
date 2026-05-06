@@ -9,8 +9,9 @@ import { hankinPattern } from './geometry/hankin';
 import { hexagonalTiling, squareTiling } from './geometry/tilings';
 import { truncatedSquareTiling } from './geometry/archimedean';
 import { renderToContext, resizeCanvas } from './render/canvas2d';
-import { SketchRunner, type Sketch } from './core/SketchRunner';
+import { SketchRunner, type Sketch, type SketchParam, type SketchParamValue } from './core/SketchRunner';
 import { SketchRegistry } from './core/Registry';
+import { HashRouter } from './core/HashRouter';
 import { Menu } from './ui/Menu';
 import { ParamPanel } from './ui/ParamPanel';
 import type { Tiling } from './geometry/types';
@@ -124,18 +125,42 @@ if (root) {
   );
 
   let panel: ParamPanel | null = null;
+  let activeId: string | null = null;
   const menu = new Menu({
     host: menuHost,
     registry,
     onSelect: (id) => {
-      void switchTo(id);
+      void switchTo(id, {}, true);
     },
   });
 
-  async function switchTo(id: string): Promise<void> {
+  const router = new HashRouter({
+    onRoute: (route) => {
+      const targetId =
+        route.sketchId && registry.get(route.sketchId)
+          ? route.sketchId
+          : registry.list()[0]?.id ?? null;
+      if (!targetId) return;
+      void switchTo(targetId, route.params, false);
+    },
+  });
+
+  async function switchTo(
+    id: string,
+    urlParams: Readonly<Record<string, string>>,
+    pushToUrl: boolean,
+  ): Promise<void> {
     const entry = registry.get(id);
     if (!entry) return;
+    if (activeId === id && panel) {
+      // Same sketch — just nudge params.
+      applyUrlParams(panel, entry.sketch, urlParams);
+      runner.requestPaint();
+      if (pushToUrl) router.setRoute(id, panel.values());
+      return;
+    }
     await runner.mount(entry.sketch);
+    activeId = id;
     menu.setActive(id);
     panel?.dispose();
     const params = entry.sketch.defineParams?.() ?? [];
@@ -146,15 +171,43 @@ if (root) {
       onChange: (key, value) => {
         runner.setParam(key, value);
         runner.requestPaint();
+        if (panel) router.setRoute(id, panel.values());
       },
     });
-    // Seed runner state with whatever the panel restored.
+    // Apply URL params on top of any localStorage-restored values.
+    applyUrlParams(panel, entry.sketch, urlParams);
     for (const [key, value] of Object.entries(panel.values())) {
       runner.setParam(key, value);
     }
     runner.requestPaint();
+    if (pushToUrl) router.setRoute(id, panel.values());
   }
 
-  const first = registry.list()[0];
-  if (first) void switchTo(first.id);
+  function applyUrlParams(
+    p: ParamPanel,
+    sketch: Sketch,
+    urlParams: Readonly<Record<string, string>>,
+  ): void {
+    const defs = sketch.defineParams?.() ?? [];
+    const byKey = new Map(defs.map((d) => [d.key, d]));
+    for (const [key, raw] of Object.entries(urlParams)) {
+      const def = byKey.get(key);
+      if (!def) continue;
+      const value = coerce(raw, def);
+      if (value !== null) p.setValue(key, value);
+    }
+  }
+
+  function coerce(raw: string, def: SketchParam): SketchParamValue | null {
+    switch (def.type) {
+      case 'number': {
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      }
+      case 'boolean':
+        return raw === 'true' || raw === '1';
+      case 'string':
+        return raw;
+    }
+  }
 }

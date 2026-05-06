@@ -68,9 +68,10 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **126/126 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
-  1 · variations 14 · canvas2d 14 · svg 12 · SketchRunner 13 · Registry 9 ·
-  Menu 6 · ParamPanel 13 · Scene 9).
+- Tests: **167/167 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
+  1 · variations 14 · archimedean 8 · canvas2d 14 · svg 12 · SketchRunner 13 ·
+  Registry 9 · HashRouter 16 · Menu 6 · ParamPanel 13 · Scene 9 · extrude 9 ·
+  HankinShaderMaterial 8).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
 - Coverage on `src/render/**`: **99.32 % / 84.44 %** — `canvas2d.ts` 99.33 /
   84.78, `svg.ts` 99.32 / 84.09.
@@ -84,10 +85,12 @@ Notation in this file:
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01..G-05, R-01, R-02, S-01, S-02, S-03, T-01** through O.
-Next: **T-02** (strapwork extrusion) layered on Scene3D for v1.0 §2.4 +
-§2.5; **R-03** (construction-line overlay polish) is parallel-safe;
-**S-04** (hash routing) will close out the Shell domain alongside S-05.
+Completed: **G-01..G-05, P-03, R-01, R-02, S-01..S-04, T-01..T-03** through O.
+Next: **M-02** (graffiti material) layered on T-03 for v1.0 §2.5 + §2.6;
+**S-05** (preset save/load); **B-03** (visual regression for T-03 visual
+parity); **D-01** + **D-02** (README + references). With all of v1.0 §2's
+engine + UI primitives in place, the remaining work is mostly polish, a
+3D demo sketch wiring, and CI.
 
 ## 5. Domain map (epics)
 
@@ -382,10 +385,24 @@ Thin facade over Tweakpane: per-sketch folder, persistent across reloads via
 URL hash binds the active sketch (`#hankin-square-10`) and serialises params
 (`#hankin-square-10?angle=0.7&rows=5`). Shareable links.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/core/HashRouter.ts`, `tests/core/HashRouter.test.ts`,
+  `src/main.ts` (integration)
 - **Acceptance**:
-  - [ ] Back/forward buttons work.
-  - [ ] Copy link → paste in new tab → identical sketch state.
+  - [x] Back/forward buttons work — `HashRouter` listens for `hashchange`
+        and re-fires `onRoute(parseHash(...))` so the page updates.
+        Self-triggered changes via `setRoute` are suppressed so the
+        forward path doesn't loop.
+  - [x] Copy link → paste in new tab → identical sketch state — the
+        constructor fires `onRoute` with the current hash so the page
+        boots from the URL. `serializeHash` sorts keys alphabetically so
+        equivalent param objects produce identical URLs.
+- **Notes**: `parseHash` and `serializeHash` are pure string transforms
+  (URL-percent-encoded, decode-on-read). `main.ts` wires the router so
+  the panel's `onChange` calls `router.setRoute(id, panel.values())`,
+  the menu's `onSelect` triggers a switch+push, and URL-bound params are
+  coerced through `SketchParam.type` (`number`, `boolean`, `string`)
+  before going into `panel.setValue`. A pending until B-02.
 
 #### S-05 — Preset save/load
 Save the current parameter set as a named preset; export/import as JSON.
@@ -669,3 +686,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | S-03 implemented and optimised. `ParamPanel` (`src/ui/ParamPanel.ts`) with injectable `PaneFactory` (default wraps Tweakpane v4) and `Storage` (default `localStorage`). 13 new tests; 105/105 green. Coverage on `ParamPanel.ts`: 90 % lines / 84.78 % branches; `src/ui/**` aggregate 92.38 / 87.5. `main.ts` wires the panel for the active sketch with `angle / strapWidth / showConstruction` knobs; `update` re-paints on each frame so live tweaks land. Bundle 37 kB gzip (Tweakpane is the bulk; B-01 ceiling 600 kB). |
 | 2026-05-06 | T-01 implemented and optimised. `Scene3D` in `src/core/three/Scene.ts` with perspective + orthographic cameras, default lighting rig, DPR-aware resize, render-on-dirty `invalidate()` and opt-in `setContinuousRendering(true)`. `RendererLike` is injectable so tests use a stub instead of WebGL; production wires `THREE.WebGLRenderer`. 9 new tests; 114/114 green. Coverage on `Scene.ts`: 93.66 % lines. |
 | 2026-05-06 | R-02 implemented and optimised. `renderToSVG` in `src/render/svg.ts` — pure string output, deterministic fixed-precision coordinate formatting, optional background + construction-line group, single `<path>` per strap group. 12 new tests; 126/126 green. Coverage on `svg.ts`: 99.32 % lines / 84.09 % branches. |
+| 2026-05-06 | P-03 + T-02 + T-03 + S-04 shipped in parallel. P-03: `truncatedSquareTiling` (4.8.8) and `trihexagonalTiling` (3.6.3.6) in `src/geometry/archimedean.ts`; main.ts registers a third sketch. T-02: `extrudeStrapwork` in `src/core/three/extrude.ts` — union-find on endpoints + per-component `BufferGeometryUtils.mergeGeometries`; `mergeVertices` clean. T-03: `createHankinShaderMaterial` in `src/materials/HankinShaderMaterial.ts` — branchless line-segment SDF + smoothstep AA; visual parity deferred to B-03. S-04: `parseHash` / `serializeHash` / `HashRouter` in `src/core/HashRouter.ts`; main.ts boots from URL and round-trips param edits. 41 new tests; 167/167 green. |
