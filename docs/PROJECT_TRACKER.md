@@ -68,11 +68,12 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **114/114 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
-  1 · variations 14 · canvas2d 14 · SketchRunner 13 · Registry 9 · Menu 6 ·
-  ParamPanel 13 · Scene 9).
+- Tests: **126/126 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
+  1 · variations 14 · canvas2d 14 · svg 12 · SketchRunner 13 · Registry 9 ·
+  Menu 6 · ParamPanel 13 · Scene 9).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
-- Coverage on `src/render/**`: **99.33 % / 84.78 %**.
+- Coverage on `src/render/**`: **99.32 % / 84.44 %** — `canvas2d.ts` 99.33 /
+  84.78, `svg.ts` 99.32 / 84.09.
 - Coverage on `src/core/**`: **92.89 % / 80.7 %** — above the 70 % gate;
   `Registry.ts` is 100 / 100. `src/core/three/Scene.ts` 93.66 / 45.71.
 - Coverage on `src/ui/**`: **92.38 % / 87.5 %** — `Menu.ts` 100 / 100,
@@ -83,9 +84,10 @@ Notation in this file:
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01..G-05, R-01, S-01, S-02, S-03, T-01** through O.
-Next: **T-02** (strapwork extrusion) layered on Scene3D for v1.0 §2.4, or
-**R-02** (SVG export) for downloads + snapshot tests.
+Completed: **G-01..G-05, R-01, R-02, S-01, S-02, S-03, T-01** through O.
+Next: **T-02** (strapwork extrusion) layered on Scene3D for v1.0 §2.4 +
+§2.5; **R-03** (construction-line overlay polish) is parallel-safe;
+**S-04** (hash routing) will close out the Shell domain alongside S-05.
 
 ## 5. Domain map (epics)
 
@@ -267,11 +269,22 @@ endcap, line join, optional construction-line overlay.
 #### R-02 — SVG export
 Same `Pattern` → minimal SVG string. Useful for downloads and snapshot tests.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/render/svg.ts` (new), `tests/render/svg.test.ts`
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/render/svg.ts`, `tests/render/svg.test.ts`
 - **Acceptance**:
-  - [ ] Output is valid SVG (XML parse ok, viewBox correct).
-  - [ ] Snapshot test stable across runs.
+  - [x] Output is valid SVG (XML parse ok, viewBox correct) — XML parses
+        without `parsererror`, the document contains an `<svg>` element,
+        and `width / height / viewBox` round-trip the supplied dimensions.
+  - [x] Snapshot test stable across runs — verified by the
+        `identical-output-for-identical-inputs` assertion plus a
+        round-trippable strap-count check; coordinate formatting is fixed
+        precision (default 4) with trailing zeros stripped.
+- **Notes**: Pure string output, no DOM access. Strap segments coalesce
+  into a single `<path>` inside `<g class="straps">`; an optional
+  `<g class="construction">` group sits behind it when the pattern carries
+  a `sourceTiling`. Bounds + fit transform mirror the canvas2d logic so
+  SVG and Canvas2D look identical at the same dimensions. A pending until
+  B-02.
 
 #### R-03 — Construction-line overlay
 Render the underlying tiling polygons faintly behind the pattern, toggleable
@@ -621,3 +634,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | S-02 implemented and optimised. `SketchRegistry` (`src/core/Registry.ts`) and `Menu` (`src/ui/Menu.ts`). 9 + 6 new tests; 92/92 green. Both new files at 100 % lines / 100 % branches. `main.ts` registers `hankin-square` and `hankin-hex` and routes menu selection through the runner; `index.html` gains menu styles. Bundle 4.51 kB gzip. |
 | 2026-05-06 | S-03 implemented and optimised. `ParamPanel` (`src/ui/ParamPanel.ts`) with injectable `PaneFactory` (default wraps Tweakpane v4) and `Storage` (default `localStorage`). 13 new tests; 105/105 green. Coverage on `ParamPanel.ts`: 90 % lines / 84.78 % branches; `src/ui/**` aggregate 92.38 / 87.5. `main.ts` wires the panel for the active sketch with `angle / strapWidth / showConstruction` knobs; `update` re-paints on each frame so live tweaks land. Bundle 37 kB gzip (Tweakpane is the bulk; B-01 ceiling 600 kB). |
 | 2026-05-06 | T-01 implemented and optimised. `Scene3D` in `src/core/three/Scene.ts` with perspective + orthographic cameras, default lighting rig, DPR-aware resize, render-on-dirty `invalidate()` and opt-in `setContinuousRendering(true)`. `RendererLike` is injectable so tests use a stub instead of WebGL; production wires `THREE.WebGLRenderer`. 9 new tests; 114/114 green. Coverage on `Scene.ts`: 93.66 % lines. |
+| 2026-05-06 | R-02 implemented and optimised. `renderToSVG` in `src/render/svg.ts` — pure string output, deterministic fixed-precision coordinate formatting, optional background + construction-line group, single `<path>` per strap group. 12 new tests; 126/126 green. Coverage on `svg.ts`: 99.32 % lines / 84.09 % branches. |
