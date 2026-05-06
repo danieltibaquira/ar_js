@@ -68,22 +68,25 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **92/92 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
-  · variations 14 · canvas2d 14 · SketchRunner 13 · Registry 9 · Menu 6).
+- Tests: **105/105 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf
+  1 · variations 14 · canvas2d 14 · SketchRunner 13 · Registry 9 · Menu 6 ·
+  ParamPanel 13).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
 - Coverage on `src/render/**`: **99.33 % / 84.78 %**.
 - Coverage on `src/core/**`: **92.89 % / 80.7 %** — above the 70 % gate;
   `Registry.ts` is 100 / 100.
-- Coverage on `src/ui/**`: **100 % / 100 %**.
-- Build: `vite build` succeeds; bundle 11.28 kB raw / 4.51 kB gzip (B-01 size
-  ceiling 600 kB gzip).
+- Coverage on `src/ui/**`: **92.38 % / 87.5 %** — `Menu.ts` 100 / 100,
+  `ParamPanel.ts` 90 / 84.78 (uncovered tail is the localStorage default and
+  one limb of the Tweakpane adapter that happy-dom doesn't exercise).
+- Build: `vite build` succeeds; bundle 166.1 kB raw / 37 kB gzip (Tweakpane
+  is the bulk; B-01 size ceiling 600 kB gzip).
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01, S-02** through O phase.
-Next: **S-03** (ParamPanel via Tweakpane) so the registered sketches expose
-parameters at runtime; or **S-04** (hash routing) for shareable links;
-**R-02** (SVG export) is parallel-safe.
+Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01, S-02, S-03** through O.
+Next: **S-04** (hash routing) for shareable URLs, **S-05** (preset save/load),
+or step into **T-01** to start the 3D track for v1.0 §2.4. **R-02** (SVG
+export) is still parallel-safe.
 
 ## 5. Domain map (epics)
 
@@ -332,10 +335,27 @@ Lazy registry keyed by id. UI lists available sketches; clicking switches.
 Thin facade over Tweakpane: per-sketch folder, persistent across reloads via
 `localStorage`, programmatic reset.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/ui/ParamPanel.ts`, `tests/ui/ParamPanel.test.ts`,
+  `src/main.ts` (demo wiring), `index.html` (panel-host styles)
 - **Acceptance**:
-  - [ ] Type-safe param definitions with default + min/max + step.
-  - [ ] Last-used values restored on reload.
+  - [x] Type-safe param definitions with default + min/max + step — driven
+        by the existing `SketchParam` (see `src/core/SketchRunner.ts`); the
+        panel forwards `min`, `max`, `step`, and `label` straight through to
+        the binding factory.
+  - [x] Last-used values restored on reload — values persist per sketch in
+        `localStorage` under key `igx:params:${sketchId}`. Restored values
+        that differ from defaults trigger `onChange` notifications during
+        construction so the runner picks them up automatically. Malformed
+        JSON is swallowed and falls back to defaults.
+- **Notes**: `Pane` / `PaneBinding` / `PaneFactory` form an injectable
+  protocol so tests don't depend on Tweakpane internals; production wires
+  the real Tweakpane v4 (`addBinding`-based API) in the same module via a
+  default factory. `setValue(key, value)` is the programmatic-update hook
+  for future hash routing (S-04). `reset()` restores defaults, clears
+  storage, refreshes bindings, and notifies. `storage: null` opts out of
+  persistence entirely. Bundle grew to 37 kB gzip with Tweakpane in (was
+  4.5 kB). A pending until B-02.
 
 #### S-04 — Hash routing
 URL hash binds the active sketch (`#hankin-square-10`) and serialises params
@@ -588,3 +608,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | R-01 implemented and optimised. `renderToContext`, `renderCanvas2D`, `resizeCanvas` in `src/render/canvas2d.ts`. 14 new tests using a hand-rolled mock context (happy-dom's canvas2d is incomplete). 64/64 green. Coverage on `canvas2d.ts`: 99.33 % lines / 84.78 % branches. `vite build` succeeds at 2.78 kB gzip. `src/main.ts` rewritten as a temporary demo (4×4 hankin at π/4) so `npm run dev` shows a real pattern. tsconfig `noEmit: true` added so `tsc -b` no longer leaks `.js` siblings beside source. |
 | 2026-05-06 | S-01 implemented and optimised. `SketchRunner` class plus `Sketch` / `SketchParam` / `SketchContext` types in `src/core/SketchRunner.ts`. 13 new tests covering mount/unmount, sketch switching, defineParams plumbing, setParam, the 50-cycle no-leak loop, dispose-after-dispose guards, `prefers-reduced-motion` (initial suppression + runtime resume on `change`), `requestPaint` escape hatch, async-init supersession. 77/77 green. Coverage on `SketchRunner.ts`: 90.76 % lines / 75 % branches. `src/main.ts` refactored to mount its hankin demo through the runner. |
 | 2026-05-06 | S-02 implemented and optimised. `SketchRegistry` (`src/core/Registry.ts`) and `Menu` (`src/ui/Menu.ts`). 9 + 6 new tests; 92/92 green. Both new files at 100 % lines / 100 % branches. `main.ts` registers `hankin-square` and `hankin-hex` and routes menu selection through the runner; `index.html` gains menu styles. Bundle 4.51 kB gzip. |
+| 2026-05-06 | S-03 implemented and optimised. `ParamPanel` (`src/ui/ParamPanel.ts`) with injectable `PaneFactory` (default wraps Tweakpane v4) and `Storage` (default `localStorage`). 13 new tests; 105/105 green. Coverage on `ParamPanel.ts`: 90 % lines / 84.78 % branches; `src/ui/**` aggregate 92.38 / 87.5. `main.ts` wires the panel for the active sketch with `angle / strapWidth / showConstruction` knobs; `update` re-paints on each frame so live tweaks land. Bundle 37 kB gzip (Tweakpane is the bulk; B-01 ceiling 600 kB). |

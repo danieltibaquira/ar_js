@@ -15,7 +15,11 @@
       }
       .sketch-menu button:hover { background: #25252b; }
       .sketch-menu button.is-active { background: #4a4a55; border-color: #5a5a67; }
-      .stage { flex: 1; min-height: 0; }
+      .stage { flex: 1; min-height: 0; position: relative; }
+      .param-panel-host {
+        position: fixed; top: 64px; right: 16px; width: 280px;
+        z-index: 10;
+      }
     </style>
   </head>
   <body>
