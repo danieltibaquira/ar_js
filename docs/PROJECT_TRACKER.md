@@ -68,20 +68,19 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **64/64 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
-  · variations 14 · canvas2d 14).
+- Tests: **77/77 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
+  · variations 14 · canvas2d 14 · SketchRunner 13).
 - Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
-- Coverage on `src/render/**`: **99.33 % / 84.78 %** — above the 70 %
-  `src/core/**` gate (closest analog domain).
-- Build: `vite build` succeeds; bundle 6.18 kB raw / 2.78 kB gzip (B-01 size
+- Coverage on `src/render/**`: **99.33 % / 84.78 %**.
+- Coverage on `src/core/**`: **90.76 % / 75 %** — above the 70 % gate.
+- Build: `vite build` succeeds; bundle 8.77 kB raw / 3.70 kB gzip (B-01 size
   ceiling 600 kB gzip).
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01, G-02, G-03, G-04, G-05, R-01** through O phase.
-Next: **S-01** (SketchRunner lifecycle) — wires render targets to the
-parameter panel and lets future sketches plug in. **R-02** (SVG export) is a
-parallel-safe option.
+Completed: **G-01, G-02, G-03, G-04, G-05, R-01, S-01** through O phase.
+Next: **S-02** (sketch registry & menu) so multiple sketches can live side by
+side and be switched at runtime; or **R-02** (SVG export) in parallel.
 
 ## 5. Domain map (epics)
 
@@ -284,12 +283,26 @@ from the parameter panel. Pedagogical aid.
 Common interface every design implements: `init`, `update`, `dispose`,
 `defineParams`. Plus a runner that drives one sketch at a time.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/core/SketchRunner.ts` (new), `tests/core/SketchRunner.test.ts`
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/core/SketchRunner.ts`, `tests/core/SketchRunner.test.ts`,
+  `src/main.ts` (demo wiring)
 - **Acceptance**:
-  - [ ] `dispose` releases all GPU and DOM resources (no leaks across switches
-        verified by repeated mount/unmount in test).
-  - [ ] Runner respects `prefers-reduced-motion`.
+  - [x] `dispose` releases all GPU and DOM resources — verified by a
+        50-cycle mount/unmount loop that asserts each sketch's `dispose`
+        runs once, the host has zero children after each unmount, and no
+        rAF callbacks remain pending.
+  - [x] Runner respects `prefers-reduced-motion` — when the injected
+        `MediaQueryList.matches === true` the rAF loop is suppressed and
+        zero `update` ticks fire; flipping `matches` back to `false` and
+        dispatching `change` resumes the loop.
+- **Notes**: rAF and `MediaQueryList` are dependency-injected so tests drive
+  frames manually and toggle the motion preference deterministically.
+  Production defaults pull from `globalThis.requestAnimationFrame` and
+  `window.matchMedia('(prefers-reduced-motion: reduce)')`. A generation
+  counter guards against an in-flight async `init` clobbering a newer
+  mount. `requestPaint()` exposes a single-frame escape hatch for sketches
+  that need to repaint after a parameter change while reduced motion is
+  on. A pending until B-02.
 
 #### S-02 — Sketch registry & menu
 Lazy registry keyed by id. UI lists available sketches; clicking switches.
@@ -558,3 +571,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | G-04 implemented and optimised. `segmentIntersection`, `rayExitPoint`, `hankinPattern` shipped. Added the missing angle-sweep no-NaN test (now 11 hankin tests as the contract claims) and a perf test. 36/36 green. Coverage on `src/geometry/**`: 99.33 % lines / 93.54 % branches. Perf: 32×32 hankin pattern at π/4 in ~47 ms. |
 | 2026-05-06 | G-05 implemented and optimised. `strapToRibbon`, `convexHull`, `rosetteHull` shipped in `src/geometry/variations.ts`. 14 new tests; 50/50 green. Coverage on `variations.ts`: 100 % lines / 96.66 % branches. |
 | 2026-05-06 | R-01 implemented and optimised. `renderToContext`, `renderCanvas2D`, `resizeCanvas` in `src/render/canvas2d.ts`. 14 new tests using a hand-rolled mock context (happy-dom's canvas2d is incomplete). 64/64 green. Coverage on `canvas2d.ts`: 99.33 % lines / 84.78 % branches. `vite build` succeeds at 2.78 kB gzip. `src/main.ts` rewritten as a temporary demo (4×4 hankin at π/4) so `npm run dev` shows a real pattern. tsconfig `noEmit: true` added so `tsc -b` no longer leaks `.js` siblings beside source. |
+| 2026-05-06 | S-01 implemented and optimised. `SketchRunner` class plus `Sketch` / `SketchParam` / `SketchContext` types in `src/core/SketchRunner.ts`. 13 new tests covering mount/unmount, sketch switching, defineParams plumbing, setParam, the 50-cycle no-leak loop, dispose-after-dispose guards, `prefers-reduced-motion` (initial suppression + runtime resume on `change`), `requestPaint` escape hatch, async-init supersession. 77/77 green. Coverage on `SketchRunner.ts`: 90.76 % lines / 75 % branches. `src/main.ts` refactored to mount its hankin demo through the runner. |
