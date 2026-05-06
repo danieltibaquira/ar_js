@@ -68,12 +68,15 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: 24 pass (primitives + tilings) · 10 fail (hankin, stub) — **intentional RED on hankin only**.
+- Tests: **36/36 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1).
+- Coverage on `src/geometry/**`: **99.33 % lines / 93.54 % branches** — above the
+  85 % gate.
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed this session: **G-01, G-02, G-03** through O phase.
-In-flight: **G-04** (Hankin strap construction). Next move is `I→G`.
+Completed: **G-01, G-02, G-03, G-04** through O phase.
+Next: **G-05** (pattern variations & helpers) or sideways into **R-01**
+(Canvas2D rasterizer) / **S-01** (SketchRunner) per the §8 critical path.
 
 ## 5. Domain map (epics)
 
@@ -146,14 +149,24 @@ canonical generator.
 generation: for each interior edge emit two rays at `±contactAngle`, extend
 until they hit each other or the polygon boundary.
 
-- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/geometry/hankin.ts`, `tests/geometry/hankin.test.ts`
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/geometry/hankin.ts`, `tests/geometry/hankin.test.ts`,
+  `tests/geometry/hankin.perf.test.ts`
 - **Acceptance**:
-  - [ ] All 11 tests in `hankin.test.ts` pass.
-  - [ ] Result is deterministic for identical inputs.
-  - [ ] At `contactAngle = π/2` on a square tiling, every strap is axis-aligned.
-  - [ ] Strap count ≥ `2 × |interior edges|`.
-  - [ ] No NaN or Infinity in output for any contact angle ∈ [π/12, 5π/12].
+  - [x] All 11 tests in `hankin.test.ts` pass.
+  - [x] Result is deterministic for identical inputs.
+  - [x] At `contactAngle = π/2` on a square tiling, every strap is axis-aligned.
+  - [x] Strap count ≥ `2 × |interior edges|`.
+  - [x] No NaN or Infinity in output for any contact angle ∈ [π/12, 5π/12]
+        (24-step sweep on a 3×3 square tiling).
+- **Notes**: Per-edge construction emits one ray *per host polygon* (interior
+  edges → 2, boundary edges → 1 inward; outward boundary ray dropped). Within
+  each polygon, every ray is clipped at the closest opposing-ray intersection
+  or, failing that, at the polygon boundary (default `clipToPolygons = true`).
+  Ray direction is selected by checking the centroid's projection onto the
+  edge normal so each ray points into its host. Output sorted by
+  `(p1.x, p1.y, p2.x, p2.y)` for determinism. Perf: 32×32 square tiling
+  pattern at π/4 in ~47 ms (test ceiling 200 ms). A pending until B-02.
 
 #### G-05 — Pattern variations & helpers
 Convenience helpers built on top of G-04: rosette extraction, n-fold star
@@ -520,3 +533,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | Tracker created. RED phase complete for G-01..G-04. Stack provisioned. CI YAML drafted as `docs/ci.yml.example`. |
 | 2026-05-06 | G-01 implemented and optimised. 14/14 primitives tests green. Tracker corrected (17→14 tests). |
 | 2026-05-06 | G-02 + G-03 implemented and optimised. squareTiling, hexagonalTiling (pointy-top), buildContactGraph. 24/34 tests green; 10 hankin tests still RED as intended. Contact graph perf: 11.4 ms for 1000 polygons. |
+| 2026-05-06 | G-04 implemented and optimised. `segmentIntersection`, `rayExitPoint`, `hankinPattern` shipped. Added the missing angle-sweep no-NaN test (now 11 hankin tests as the contract claims) and a perf test. 36/36 green. Coverage on `src/geometry/**`: 99.33 % lines / 93.54 % branches. Perf: 32×32 hankin pattern at π/4 in ~47 ms. |

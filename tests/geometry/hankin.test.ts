@@ -108,4 +108,21 @@ describe('hankinPattern', () => {
       expect(isAxisAligned).toBe(true);
     }
   });
+
+  it('produces no NaN or Infinity across the artistic angle range [π/12, 5π/12]', () => {
+    const tiling = squareTiling({ rows: 3, cols: 3, size: 1 });
+    const steps = 24;
+    const lo = Math.PI / 12;
+    const hi = (5 * Math.PI) / 12;
+    for (let i = 0; i <= steps; i++) {
+      const angle = lo + ((hi - lo) * i) / steps;
+      const pattern = hankinPattern(tiling, { contactAngle: angle });
+      for (const seg of pattern.strapSegments) {
+        expect(Number.isFinite(seg.p1.x)).toBe(true);
+        expect(Number.isFinite(seg.p1.y)).toBe(true);
+        expect(Number.isFinite(seg.p2.x)).toBe(true);
+        expect(Number.isFinite(seg.p2.y)).toBe(true);
+      }
+    }
+  });
 });
