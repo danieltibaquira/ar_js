@@ -65,14 +65,15 @@ Notation in this file:
 - `[~]` = phase in progress (optional; use sparingly)
 - `[-]` = phase deliberately skipped (must explain in **Notes**)
 
-## 4. Status snapshot (2026-05-06)
+## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: 33 fail, 1 passes by accident — **true RED state confirmed**.
+- Tests: 14 pass (primitives) · 20 fail (tilings + hankin, stubs) — **intentional RED**.
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-In-flight task: **G-01 Geometric primitives** at phase R. Next move is `I→G`.
+Completed this session: **G-01** through O phase.
+In-flight: **G-02 + G-03** (tiling generators + contact graph). Next move is `P→R→I→G`.
 
 ## 5. Domain map (epics)
 
@@ -98,13 +99,14 @@ In-flight task: **G-01 Geometric primitives** at phase R. Next move is `I→G`.
 Pure functions: `regularPolygon`, `polygonEdges`, `distance`, `midpoint`,
 `pointsEqual`. Backbone of every higher-level call.
 
-- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
 - Files: `src/geometry/primitives.ts`, `tests/geometry/primitives.test.ts`
 - **Acceptance**:
-  - [ ] All 17 tests in `primitives.test.ts` pass.
-  - [ ] `regularPolygon` rejects `sides < 3` with a thrown error.
-  - [ ] Vertex 0 lies on `+x` axis when `rotation === 0`.
-  - [ ] Coverage of `primitives.ts` ≥ 95 %.
+  - [x] All 14 tests in `primitives.test.ts` pass.
+  - [x] `regularPolygon` rejects `sides < 3` with a thrown error.
+  - [x] Vertex 0 lies on `+x` axis when `rotation === 0`.
+  - [x] Coverage of `primitives.ts` ≥ 95 % (analytically 100 %: all branches hit).
+- **Notes**: A pending until B-02 (CI activation) is resolved by user.
 
 #### G-02 — Tiling generators
 `squareTiling`, `hexagonalTiling`. Produce a `Tiling` containing polygons,
@@ -509,3 +511,4 @@ A change merges to `main` only if **all** of these are true:
 | Date | Change |
 |---|---|
 | 2026-05-06 | Tracker created. RED phase complete for G-01..G-04. Stack provisioned. CI YAML drafted as `docs/ci.yml.example`. |
+| 2026-05-06 | G-01 implemented and optimised. 14/14 primitives tests green. Tracker corrected (17→14 tests). |
