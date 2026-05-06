@@ -1,0 +1,511 @@
+# Islamic Geometry Explorer — Project Tracker
+
+Single source of truth for scope, progress, and per-task phase status.
+Update this file every time a task changes phase. The truth of "done" is the
+**Acceptance** block on each task; nothing is green until those checks pass.
+
+---
+
+## 1. Vision
+
+A browser-based, parametric explorer for Islamic geometric design. The user
+arrives at a single web page, picks a "design" from a menu, tunes parameters
+in a side panel, and sees the result live in a 2D canvas or a 3D scene. The
+tool is a **wrapper** plus a growing library of mathematically rigorous
+**designs** that share a common runtime contract.
+
+The mathematical core is the **Hankin / Polygons-In-Contact (PIC)** method as
+formalised by Craig S. Kaplan. Additional engines (Girih tiles à la Lu &
+Steinhardt, n-fold star rosettes à la Broug, muqarnas) are layered on top of
+the same wrapper.
+
+## 2. Definition of Completion
+
+The project is **complete (v1.0)** when **every** statement below holds:
+
+1. A user can open the deployed site and choose between **at least 5 distinct
+   designs** from a visible menu without reloading the page.
+2. Each design exposes **at least 3 parameters** through Tweakpane and
+   responds to changes in real time (≤ 16 ms re-render on a 2020 mid-range
+   laptop).
+3. The Hankin/PIC engine renders patterns from **at least 3 base tilings**
+   (square, hexagonal, and one mixed/Archimedean) and supports continuous
+   variation of the contact angle.
+4. **At least one design renders in 3D** with three.js, using extrusion of the
+   strapwork.
+5. **At least one design renders the pattern as a procedural texture** on a 3D
+   surface (graffiti-on-wall style or equivalent).
+6. The full unit-test suite is **green** with **≥ 85 % line coverage** on
+   `src/geometry/**` and **≥ 70 %** on `src/core/**`.
+7. CI runs typecheck + tests on every push and is **green on `main`**.
+8. The build produces a static bundle (`vite build`) that loads in < 2 s on
+   broadband and works without a server other than static hosting.
+9. The project README documents how to run, build, test, and add a new sketch.
+10. Mathematical methods are credited in `docs/REFERENCES.md` with primary
+    sources for each engine.
+
+Anything beyond the list above is **stretch** (see §11).
+
+## 3. Methodology — Phase model
+
+Every task moves through six phases, in order. A task may not skip phases.
+
+| Phase | Glyph | Exit criterion |
+|---|---|---|
+| **Plan** | `P` | Contracts (types, function signatures) and acceptance criteria written down. No implementation. |
+| **Red** | `R` | Tests exist that exercise the contract and **fail** when run. |
+| **Implement** | `I` | Code exists that aims to satisfy the contracts. May still fail tests. |
+| **Green** | `G` | The Red tests now pass; typecheck clean. |
+| **Optimize** | `O` | Refactor/perf pass while staying green. Coverage target hit. |
+| **Automate** | `A` | CI runs the relevant tests on push and blocks regression. |
+
+Notation in this file:
+- `[x]` = phase complete
+- `[ ]` = phase pending
+- `[~]` = phase in progress (optional; use sparingly)
+- `[-]` = phase deliberately skipped (must explain in **Notes**)
+
+## 4. Status snapshot (2026-05-06)
+
+- Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
+- Tests: 33 fail, 1 passes by accident — **true RED state confirmed**.
+- CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
+  cannot create `.github/workflows/`; user must copy file in a manual commit).
+
+In-flight task: **G-01 Geometric primitives** at phase R. Next move is `I→G`.
+
+## 5. Domain map (epics)
+
+| ID | Domain | Why it exists |
+|---|---|---|
+| **G** | Core geometry engine (Hankin/PIC) | Mathematical heart. Everything else depends on it. |
+| **P** | Additional pattern engines | Variety: Girih, n-fold rosettes, recursion. |
+| **R** | 2D renderer | Show patterns flat, on Canvas2D / SVG. |
+| **S** | Shell / wrapper | Sketch registry, menu, parameter panel, routing. |
+| **T** | 3D renderer (three.js) | Extrude strapwork, project on meshes. |
+| **M** | Materials & shaders | Concrete, graffiti, weathered, neon, gilded. |
+| **Q** | Muqarnas | Specialised 3D vault generator. |
+| **B** | Build / CI / DX | Tooling, deployment, regression. |
+| **D** | Documentation | Onboarding + mathematical references. |
+
+---
+
+## 6. Tasks
+
+### Domain G — Core geometry engine (Hankin / PIC)
+
+#### G-01 — Geometric primitives
+Pure functions: `regularPolygon`, `polygonEdges`, `distance`, `midpoint`,
+`pointsEqual`. Backbone of every higher-level call.
+
+- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/primitives.ts`, `tests/geometry/primitives.test.ts`
+- **Acceptance**:
+  - [ ] All 17 tests in `primitives.test.ts` pass.
+  - [ ] `regularPolygon` rejects `sides < 3` with a thrown error.
+  - [ ] Vertex 0 lies on `+x` axis when `rotation === 0`.
+  - [ ] Coverage of `primitives.ts` ≥ 95 %.
+
+#### G-02 — Tiling generators
+`squareTiling`, `hexagonalTiling`. Produce a `Tiling` containing polygons,
+edges, contact info, and bounds.
+
+- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/tilings.ts`, `tests/geometry/tilings.test.ts`
+- **Acceptance**:
+  - [ ] A `r×c` square tiling produces `r·c` polygons, 4 vertices each.
+  - [ ] Interior edges report `polygonIds.length === 2`; boundary edges report 1.
+  - [ ] Bounds match the geometric extent within 1e-9.
+  - [ ] Hexagonal tiling is flat-top, rows alternately offset by 0.5 columns.
+  - [ ] Coverage ≥ 90 %.
+
+#### G-03 — Contact graph
+`buildContactGraph` finds shared edges across an arbitrary polygon list with
+configurable tolerance. The escape hatch when polygons are not laid out by a
+canonical generator.
+
+- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/tilings.ts`, `tests/geometry/tilings.test.ts`
+- **Acceptance**:
+  - [ ] Two adjacent unit squares produce exactly one shared edge.
+  - [ ] Tolerance argument makes endpoints agree at 1e-10 separation.
+  - [ ] No false positives for parallel-but-non-touching edges.
+  - [ ] Runs O((Σ|edges|)²) or better; for 1000 polygons under 200 ms.
+
+#### G-04 — Hankin strap construction
+`segmentIntersection`, `rayExitPoint`, `hankinPattern`. The actual pattern
+generation: for each interior edge emit two rays at `±contactAngle`, extend
+until they hit each other or the polygon boundary.
+
+- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/hankin.ts`, `tests/geometry/hankin.test.ts`
+- **Acceptance**:
+  - [ ] All 11 tests in `hankin.test.ts` pass.
+  - [ ] Result is deterministic for identical inputs.
+  - [ ] At `contactAngle = π/2` on a square tiling, every strap is axis-aligned.
+  - [ ] Strap count ≥ `2 × |interior edges|`.
+  - [ ] No NaN or Infinity in output for any contact angle ∈ [π/12, 5π/12].
+
+#### G-05 — Pattern variations & helpers
+Convenience helpers built on top of G-04: rosette extraction, n-fold star
+detection, strap-width offset, dashing, repetition (motif tiling).
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/variations.ts` (new)
+- **Acceptance**:
+  - [ ] Function exists to expand a single strap segment into a polygonal
+        ribbon (offset both sides) given a `width` parameter.
+  - [ ] Function exists to compute the convex hull of strap endpoints near a
+        polygon centre, used to identify rosettes.
+  - [ ] Tests cover ≥ 90 %.
+
+### Domain P — Additional pattern engines
+
+#### P-01 — n-fold star rosette (Broug)
+Compass-and-straightedge construction parameterised by `n` (6, 8, 10, 12).
+Produces a star polygon at the centre of a host polygon.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/star.ts` (new)
+- **Acceptance**:
+  - [ ] Output is geometrically equivalent to a {n/k} star polygon for chosen
+        density `k`.
+  - [ ] Reproduces the canonical sixfold rosette from Broug §1 within 1e-6.
+
+#### P-02 — Girih tile set
+The five Lu–Steinhardt decorated polygons (decagon, pentagon, rhombus,
+bowtie, hexagon) with edge-matching strap rules.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/girih.ts` (new)
+- **Acceptance**:
+  - [ ] All 5 tile vertex sets equilateral with edge length 1.
+  - [ ] Strap rules join cleanly at every shared edge in any legal placement.
+  - [ ] Helper to assemble the canonical "Topkapı scroll" decagonal cluster.
+
+#### P-03 — Mixed Archimedean tilings
+4.8.8 (truncated square), 3.6.3.6 (trihexagonal), 4.6.12 (rhombitrihexagonal),
+plus an extensibility hook for arbitrary vertex configurations.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/archimedean.ts` (new)
+- **Acceptance**:
+  - [ ] Each implemented tiling produces the correct polygon mix per cell.
+  - [ ] Feeds into G-04 unchanged (uses the standard `Tiling` type).
+
+#### P-04 — Self-similar / quasi-crystalline recursion
+Sub-tile substitution rules à la Lu–Steinhardt; one level of recursion turns
+a girih tile into the next finer set per the published rules (decagon → 80
+decagons + 80 bowties + 36 hexagons, etc.).
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/geometry/substitution.ts` (new)
+- **Acceptance**:
+  - [ ] Substitution count matches Lu & Steinhardt 2007 Table S1.
+  - [ ] Two iterations on a single decagon generate ≥ 6400 child decagons.
+
+### Domain R — 2D renderer
+
+#### R-01 — Canvas2D rasterizer
+Take a `Pattern` and draw it on a `<canvas>` 2D context. Strap width, colour,
+endcap, line join, optional construction-line overlay.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/render/canvas2d.ts` (new), `tests/render/canvas2d.test.ts`
+- **Acceptance**:
+  - [ ] Renders a 2x2 square Hankin pattern at 800x800 in ≤ 16 ms.
+  - [ ] DPI-aware (uses `devicePixelRatio`).
+
+#### R-02 — SVG export
+Same `Pattern` → minimal SVG string. Useful for downloads and snapshot tests.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/render/svg.ts` (new), `tests/render/svg.test.ts`
+- **Acceptance**:
+  - [ ] Output is valid SVG (XML parse ok, viewBox correct).
+  - [ ] Snapshot test stable across runs.
+
+#### R-03 — Construction-line overlay
+Render the underlying tiling polygons faintly behind the pattern, toggleable
+from the parameter panel. Pedagogical aid.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Toggle visible in Tweakpane.
+  - [ ] Overlay opacity adjustable.
+
+### Domain S — Shell / wrapper
+
+#### S-01 — SketchRunner lifecycle
+Common interface every design implements: `init`, `update`, `dispose`,
+`defineParams`. Plus a runner that drives one sketch at a time.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/core/SketchRunner.ts` (new), `tests/core/SketchRunner.test.ts`
+- **Acceptance**:
+  - [ ] `dispose` releases all GPU and DOM resources (no leaks across switches
+        verified by repeated mount/unmount in test).
+  - [ ] Runner respects `prefers-reduced-motion`.
+
+#### S-02 — Sketch registry & menu
+Lazy registry keyed by id. UI lists available sketches; clicking switches.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/core/Registry.ts` (new), `src/ui/Menu.ts` (new)
+- **Acceptance**:
+  - [ ] Adding a sketch is one import + one `register()` call.
+  - [ ] Menu reflects registry without manual wiring.
+
+#### S-03 — ParamPanel wrapper
+Thin facade over Tweakpane: per-sketch folder, persistent across reloads via
+`localStorage`, programmatic reset.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Type-safe param definitions with default + min/max + step.
+  - [ ] Last-used values restored on reload.
+
+#### S-04 — Hash routing
+URL hash binds the active sketch (`#hankin-square-10`) and serialises params
+(`#hankin-square-10?angle=0.7&rows=5`). Shareable links.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Back/forward buttons work.
+  - [ ] Copy link → paste in new tab → identical sketch state.
+
+#### S-05 — Preset save/load
+Save the current parameter set as a named preset; export/import as JSON.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] At least 3 built-in presets per sketch.
+
+### Domain T — 3D renderer (three.js)
+
+#### T-01 — Scene boilerplate
+Camera (perspective + ortho), lighting rig, OrbitControls, resize handler,
+clock, render loop coupled to `SketchRunner.update`.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/core/three/Scene.ts` (new)
+- **Acceptance**:
+  - [ ] Idle GPU usage < 5 % on integrated graphics.
+  - [ ] Resize is correct on devicePixelRatio change.
+
+#### T-02 — Strapwork extrusion
+`Pattern` → `THREE.ExtrudeGeometry` via `THREE.Shape`. Configurable depth
+and bevel; connected straps merge into single shapes.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/core/three/extrude.ts` (new), tests with stub geometry.
+- **Acceptance**:
+  - [ ] Number of resulting meshes matches connected-component count of the
+        strap graph.
+  - [ ] No self-intersections detected by `BufferGeometryUtils.mergeVertices`.
+
+#### T-03 — Pattern as fragment shader
+Render the pattern in a fragment shader on any UV-mapped surface. Branchless
+SDF for straps, anti-aliased.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- Files: `src/materials/shaders/hankin.frag.glsl`
+- **Acceptance**:
+  - [ ] Visually matches Canvas2D output within 2 px / 95 % of pixels.
+  - [ ] Configurable strap width, base colour, background, AA width.
+
+#### T-04 — Projection on arbitrary meshes
+Triplanar mapping so the pattern stays continuous on irregular geometry
+(walls, columns, vaults).
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] No stretching on a 90° edge.
+  - [ ] Works on a `THREE.SphereGeometry` and `BoxGeometry`.
+
+### Domain M — Materials & shaders
+
+#### M-01 — Concrete / wall base
+Procedural normal + roughness for a matte painted wall. Uses Worley noise.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] No visible tiling at 4× repetition.
+
+#### M-02 — Graffiti shader
+Pattern on top of M-01 with FBM bleed at edges, slight colour variation,
+optional drip mask.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Hand toggleable parameters: bleed, drip, fade, palette.
+
+#### M-03 — Weathered / aged variant
+Pattern degraded by an erosion mask; some straps broken, some discoloured.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+
+#### M-04 — Neon / emissive
+Straps emit; the rest is dark. Bloom post-processing pass.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+
+#### M-05 — Gilded / metallic
+Anisotropic gold reflection on the strapwork; matte plaster background.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+
+### Domain Q — Muqarnas
+
+#### Q-01 — 2D plan generator
+Concentric tier projection à la Necipoğlu/Topkapı scroll.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+
+#### Q-02 — 3D cell library
+Catalogue of unit cells (squinch, half-pyramid, almond, biped) that snap
+together at integer tier boundaries.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+
+#### Q-03 — Tier stacking algorithm
+Given a 2D plan, instantiate cells and stack tiers to build a vault mesh.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Reproduces a small documented historical example within visual
+        tolerance.
+
+### Domain B — Build / CI / DX
+
+#### B-01 — Vite production build
+`npm run build` produces a deployable `dist/` with sourcemaps.
+
+- Phases: P [x] · R [-] · I [x] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] `dist/index.html` opens via `vite preview` and renders the menu.
+  - [ ] Bundle size < 600 kB gzip.
+- **Notes**: R skipped — config-only, smoke-tested manually until B-03 lands.
+
+#### B-02 — GitHub Actions CI activation
+Workflow exists (`docs/ci.yml.example`) but the GitHub App used to push
+cannot create files under `.github/workflows/`. **Manual user action**:
+copy `docs/ci.yml.example` → `.github/workflows/ci.yml` in a regular commit.
+
+- Phases: P [x] · R [-] · I [x] · G [ ] · O [-] · A [ ]
+- **Acceptance**:
+  - [ ] Push to any `claude/**` or `main` triggers the workflow.
+  - [ ] Workflow goes green on `main` after Domain G is implemented.
+- **Notes**: R/O skipped — pure CI YAML.
+
+#### B-03 — Visual regression tests
+Playwright + screenshot diff for each sketch (`@playwright/test`). Run on PR.
+
+- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
+- **Acceptance**:
+  - [ ] Threshold ≤ 0.1 % pixel diff per snapshot.
+  - [ ] Snapshots committed under `tests/__screenshots__/`.
+
+#### B-04 — Deployment
+GitHub Pages (or equivalent) auto-deploy on `main`.
+
+- Phases: P [ ] · R [-] · I [ ] · G [ ] · O [-] · A [ ]
+- **Acceptance**:
+  - [ ] Live URL documented in README.
+  - [ ] HTTPS, no console errors, no 404s.
+
+### Domain D — Documentation
+
+#### D-01 — README
+Run, build, test, and "add a sketch in 5 minutes" walkthrough.
+
+- Phases: P [ ] · R [-] · I [ ] · G [ ] · O [-] · A [-]
+
+#### D-02 — Mathematical references
+`docs/REFERENCES.md` listing primary sources (Hankin 1925; Kaplan 2005;
+Lu & Steinhardt 2007; Broug 2008; Necipoğlu 1995; Cumincad muqarnas papers).
+
+- Phases: P [ ] · R [-] · I [ ] · G [ ] · O [-] · A [-]
+
+#### D-03 — Per-sketch usage docs
+Short markdown alongside each sketch explaining the parameters and the
+mathematical idea behind the design.
+
+- Phases: P [ ] · R [-] · I [ ] · G [ ] · O [-] · A [-]
+
+---
+
+## 7. Dependency graph (rough)
+
+```
+G-01 ──► G-02 ──► G-03 ──► G-04 ──► G-05
+                         │
+                         ├──► R-01 ──► R-03
+                         ├──► R-02
+                         ├──► T-02
+                         └──► T-03 ──► T-04
+S-01 ──► S-02 ──► (any sketch)
+S-01 ──► S-03 ──► S-04 ──► S-05
+T-01 ──► T-02 / T-03 / T-04
+M-01 ──► M-02 ──► M-03
+M-04, M-05 stand alone (after T-03)
+Q-01 ──► Q-02 ──► Q-03 (after T-01)
+B-02 unblocks all CI gating; B-03 needs S-02 + at least one sketch.
+```
+
+## 8. Critical path to v1.0 (definition §2)
+
+The shortest sequence that satisfies the v1.0 acceptance list:
+
+1. G-01 → G-02 → G-03 → G-04 (Hankin engine green).
+2. R-01 (one 2D sketch on screen).
+3. S-01 → S-02 → S-03 (wrapper + menu + params).
+4. Three sketches on different tilings (G-02 already gives two; add P-03 for
+   the third — Archimedean 4.8.8 is enough).
+5. T-01 → T-02 (one 3D extruded sketch).
+6. T-03 + M-02 (procedural pattern texture, graffiti material).
+7. B-02 (CI active) → B-03 (visual regression) → B-04 (deploy).
+8. D-01 + D-02.
+
+Five sketches: hankin-square, hankin-hex, hankin-archimedean, strapwork-3d,
+graffiti-wall. That hits all ten v1.0 criteria.
+
+## 9. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Hankin ray extension produces visual glitches at acute contact angles | M | M | Property-based tests on angle sweep; clamp angle range. |
+| three.js extrusion of self-touching strapwork creates non-manifold meshes | M | M | Run `BufferGeometryUtils.mergeVertices` + validate manifold in test. |
+| Tweakpane v4 breaking changes vs v3 docs | L | L | Pin in package.json; regenerate types if needed. |
+| GitHub App workflow permission stays blocked | H | L | Manual user commit (B-02) — already documented. |
+| Visual snapshots flaky across OSes | M | M | Run snapshot tests only on Linux CI; provide local baseline regen script. |
+
+## 10. Quality gates
+
+A change merges to `main` only if **all** of these are true:
+
+1. `npm run typecheck` clean.
+2. `npm test` clean.
+3. Coverage thresholds met (G ≥ 85 %, S ≥ 70 %).
+4. Visual regression (B-03) passes (once active).
+5. No new `// @ts-ignore`, `as any`, `eslint-disable` introduced without an
+   inline justification.
+
+## 11. Out of scope (stretch / v1.x)
+
+- Calligraphy / arabesque overlays.
+- Audio-reactive parameter binding.
+- Multi-user collaborative editing.
+- Native AR/VR mode (the existing `scan_no_event/` AR.js project can be
+  revisited separately).
+- Fabrication exports (DXF for laser cutting, STL for 3D printing) — useful
+  but not required for v1.0.
+- Server-rendered thumbnails for the menu.
+
+---
+
+## 12. Change log
+
+| Date | Change |
+|---|---|
+| 2026-05-06 | Tracker created. RED phase complete for G-01..G-04. Stack provisioned. CI YAML drafted as `docs/ci.yml.example`. |
