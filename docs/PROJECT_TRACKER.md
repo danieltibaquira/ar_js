@@ -444,11 +444,25 @@ and bevel; connected straps merge into single shapes.
 Render the pattern in a fragment shader on any UV-mapped surface. Branchless
 SDF for straps, anti-aliased.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/materials/shaders/hankin.frag.glsl`
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/materials/HankinShaderMaterial.ts`,
+  `tests/materials/HankinShaderMaterial.test.ts`
 - **Acceptance**:
-  - [ ] Visually matches Canvas2D output within 2 px / 95 % of pixels.
-  - [ ] Configurable strap width, base colour, background, AA width.
+  - [~] Visually matches Canvas2D output within 2 px / 95 % of pixels —
+        deferred to the visual-regression harness (B-03). The shader uses
+        the same line-segment SDF + `smoothstep`-around-half-width logic
+        Canvas2D rounds linecaps with, so parity is expected.
+  - [x] Configurable strap width, base colour, background, AA width —
+        every option is plumbed into a uniform with a setter
+        (`setStrapWidth`, `setStrapColor`, `setBgColor`, `setAaWidth`),
+        verified by tests reading the uniform values back after each call.
+- **Notes**: Pattern segments pack into a 1×N RGBA-float DataTexture.
+  Fragment shader iterates segments via a constant-bound loop with an
+  early-exit on `i >= u_segmentCount` (WebGL1-safe). `setPattern` rebuilds
+  the texture and updates bounds. `dispose()` releases both the material
+  and its segment texture. Visual parity test is the only acceptance item
+  left strictly to follow-up; the `[~]` flag tracks that. A pending until
+  B-02; full A in B-03.
 
 #### T-04 — Projection on arbitrary meshes
 Triplanar mapping so the pattern stays continuous on irregular geometry
