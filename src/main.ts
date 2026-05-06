@@ -7,6 +7,7 @@
 
 import { hankinPattern } from './geometry/hankin';
 import { hexagonalTiling, squareTiling } from './geometry/tilings';
+import { truncatedSquareTiling } from './geometry/archimedean';
 import { renderToContext, resizeCanvas } from './render/canvas2d';
 import { SketchRunner, type Sketch } from './core/SketchRunner';
 import { SketchRegistry } from './core/Registry';
@@ -114,6 +115,11 @@ if (root) {
   registry.register(
     makeHankinSketch('hankin-hex', 'Hankin · Hex 4×4', () =>
       hexagonalTiling({ rows: 4, cols: 4, size: 1 }),
+    ),
+  );
+  registry.register(
+    makeHankinSketch('hankin-488', 'Hankin · 4.8.8', () =>
+      truncatedSquareTiling({ rows: 3, cols: 3, size: 1 }),
     ),
   );
 

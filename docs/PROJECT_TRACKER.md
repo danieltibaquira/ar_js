@@ -227,11 +227,20 @@ bowtie, hexagon) with edge-matching strap rules.
 4.8.8 (truncated square), 3.6.3.6 (trihexagonal), 4.6.12 (rhombitrihexagonal),
 plus an extensibility hook for arbitrary vertex configurations.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/geometry/archimedean.ts` (new)
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/geometry/archimedean.ts`,
+  `tests/geometry/archimedean.test.ts`, `src/main.ts` (registers
+  `hankin-488`)
 - **Acceptance**:
-  - [ ] Each implemented tiling produces the correct polygon mix per cell.
-  - [ ] Feeds into G-04 unchanged (uses the standard `Tiling` type).
+  - [x] Each implemented tiling produces the correct polygon mix per cell —
+        4.8.8: `rows × cols` octagons + `(rows-1)(cols-1)` interior squares
+        (rotated 45°); 3.6.3.6: hexagons paired with up-/down-equilateral
+        triangles. Every edge length matches `size` to 1e-9.
+  - [x] Feeds into G-04 unchanged — both tilings consume the standard
+        `Tiling` type and `hankinPattern` builds a non-empty pattern with
+        finite coordinates from each.
+- **Notes**: 4.6.12 (rhombitrihexagonal) and the generic vertex-config
+  builder are deferred to a follow-up. A pending until B-02.
 
 #### P-04 — Self-similar / quasi-crystalline recursion
 Sub-tile substitution rules à la Lu–Steinhardt; one level of recursion turns
