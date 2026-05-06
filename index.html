@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Islamic Geometry Explorer</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0b0d; color: #eee; font-family: system-ui, sans-serif; }
+      #app { width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+      .sketch-menu { display: flex; gap: 8px; padding: 12px; background: #141417; border-bottom: 1px solid #222; }
+      .sketch-menu button {
+        background: #1d1d22; color: #eee; border: 1px solid #2a2a2f;
+        padding: 6px 12px; border-radius: 6px; cursor: pointer;
+        font: inherit;
+      }
+      .sketch-menu button:hover { background: #25252b; }
+      .sketch-menu button.is-active { background: #4a4a55; border-color: #5a5a67; }
+      .stage { flex: 1; min-height: 0; position: relative; }
+      .param-panel-host {
+        position: fixed; top: 64px; right: 16px; width: 280px;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
