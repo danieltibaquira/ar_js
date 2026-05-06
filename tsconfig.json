@@ -17,6 +17,7 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": true,
+    "noEmit": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["vite/client", "vitest/globals"]
   },

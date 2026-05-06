@@ -68,16 +68,20 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: **50/50 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
-  · variations 14).
-- Coverage on `src/geometry/**`: **99.46 % lines / 94.44 % branches** — above the
-  85 % gate; `variations.ts` is at 100 % lines / 96.66 % branches.
+- Tests: **64/64 green** (primitives 14 · tilings 10 · hankin 11 · hankin perf 1
+  · variations 14 · canvas2d 14).
+- Coverage on `src/geometry/**`: **99.46 % / 94.44 %** (lines / branches).
+- Coverage on `src/render/**`: **99.33 % / 84.78 %** — above the 70 %
+  `src/core/**` gate (closest analog domain).
+- Build: `vite build` succeeds; bundle 6.18 kB raw / 2.78 kB gzip (B-01 size
+  ceiling 600 kB gzip).
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed: **G-01, G-02, G-03, G-04, G-05** through O phase.
-Next: **R-01** (Canvas2D rasterizer) — gets a pattern on screen and unblocks
-the rest of the §8 critical path. **S-01** (SketchRunner) is parallel-safe.
+Completed: **G-01, G-02, G-03, G-04, G-05, R-01** through O phase.
+Next: **S-01** (SketchRunner lifecycle) — wires render targets to the
+parameter panel and lets future sketches plug in. **R-02** (SVG export) is a
+parallel-safe option.
 
 ## 5. Domain map (epics)
 
@@ -240,11 +244,21 @@ decagons + 80 bowties + 36 hexagons, etc.).
 Take a `Pattern` and draw it on a `<canvas>` 2D context. Strap width, colour,
 endcap, line join, optional construction-line overlay.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/render/canvas2d.ts` (new), `tests/render/canvas2d.test.ts`
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/render/canvas2d.ts`, `tests/render/canvas2d.test.ts`,
+  `src/main.ts` (demo wiring)
 - **Acceptance**:
-  - [ ] Renders a 2x2 square Hankin pattern at 800x800 in ≤ 16 ms.
-  - [ ] DPI-aware (uses `devicePixelRatio`).
+  - [x] Renders a 2x2 square Hankin pattern at 800x800 in ≤ 16 ms (perf test
+        in `canvas2d.test.ts`).
+  - [x] DPI-aware (uses `devicePixelRatio`) — `resizeCanvas` consults
+        `globalThis.devicePixelRatio` and scales the backing store; the demo
+        in `src/main.ts` applies the matching context transform.
+- **Notes**: Public surface is intentionally split. `renderToContext`
+  is the pure draw routine (mockable), `renderCanvas2D` is a convenience that
+  treats canvas pixel dimensions as the drawing surface, and `resizeCanvas`
+  owns DPR. Construction-line overlay strokes the source tiling polygons when
+  `showConstructionLines` is true and `pattern.sourceTiling` is present. A
+  pending until B-02.
 
 #### R-02 — SVG export
 Same `Pattern` → minimal SVG string. Useful for downloads and snapshot tests.
@@ -543,3 +557,4 @@ A change merges to `main` only if **all** of these are true:
 | 2026-05-06 | G-02 + G-03 implemented and optimised. squareTiling, hexagonalTiling (pointy-top), buildContactGraph. 24/34 tests green; 10 hankin tests still RED as intended. Contact graph perf: 11.4 ms for 1000 polygons. |
 | 2026-05-06 | G-04 implemented and optimised. `segmentIntersection`, `rayExitPoint`, `hankinPattern` shipped. Added the missing angle-sweep no-NaN test (now 11 hankin tests as the contract claims) and a perf test. 36/36 green. Coverage on `src/geometry/**`: 99.33 % lines / 93.54 % branches. Perf: 32×32 hankin pattern at π/4 in ~47 ms. |
 | 2026-05-06 | G-05 implemented and optimised. `strapToRibbon`, `convexHull`, `rosetteHull` shipped in `src/geometry/variations.ts`. 14 new tests; 50/50 green. Coverage on `variations.ts`: 100 % lines / 96.66 % branches. |
+| 2026-05-06 | R-01 implemented and optimised. `renderToContext`, `renderCanvas2D`, `resizeCanvas` in `src/render/canvas2d.ts`. 14 new tests using a hand-rolled mock context (happy-dom's canvas2d is incomplete). 64/64 green. Coverage on `canvas2d.ts`: 99.33 % lines / 84.78 % branches. `vite build` succeeds at 2.78 kB gzip. `src/main.ts` rewritten as a temporary demo (4×4 hankin at π/4) so `npm run dev` shows a real pattern. tsconfig `noEmit: true` added so `tsc -b` no longer leaks `.js` siblings beside source. |
