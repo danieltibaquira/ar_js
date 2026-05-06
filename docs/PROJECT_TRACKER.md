@@ -422,12 +422,23 @@ clock, render loop coupled to `SketchRunner.update`.
 `Pattern` → `THREE.ExtrudeGeometry` via `THREE.Shape`. Configurable depth
 and bevel; connected straps merge into single shapes.
 
-- Phases: P [ ] · R [ ] · I [ ] · G [ ] · O [ ] · A [ ]
-- Files: `src/core/three/extrude.ts` (new), tests with stub geometry.
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
+- Files: `src/core/three/extrude.ts`,
+  `tests/core/three/extrude.test.ts`
 - **Acceptance**:
-  - [ ] Number of resulting meshes matches connected-component count of the
-        strap graph.
-  - [ ] No self-intersections detected by `BufferGeometryUtils.mergeVertices`.
+  - [x] Number of resulting meshes matches connected-component count of the
+        strap graph — union-find on endpoints (quantised by `tolerance`,
+        default 1e-9) groups straps; `extrudeStrapwork` emits one merged
+        `BufferGeometry` per component. Verified by disjoint-pairs vs
+        shared-endpoint test cases.
+  - [x] No self-intersections detected by `BufferGeometryUtils.mergeVertices`
+        — the test runs `mergeVertices` on every output geometry from a
+        2×2 Hankin pattern and asserts no throw.
+- **Notes**: Each strap reuses `strapToRibbon` (G-05) to build its 4-vertex
+  ribbon shape, then `THREE.ExtrudeGeometry` adds depth/bevel. Geometries
+  per component are merged via `BufferGeometryUtils.mergeGeometries`.
+  Tolerance is configurable for tilings whose endpoints don't agree at
+  full precision. A pending until B-02.
 
 #### T-03 — Pattern as fragment shader
 Render the pattern in a fragment shader on any UV-mapped surface. Branchless
