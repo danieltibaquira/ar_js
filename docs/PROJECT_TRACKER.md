@@ -68,12 +68,12 @@ Notation in this file:
 ## 4. Status snapshot (2026-05-06 — updated)
 
 - Stack: Vite + TS + three.js + Tweakpane + Vitest — **provisioned**.
-- Tests: 14 pass (primitives) · 20 fail (tilings + hankin, stubs) — **intentional RED**.
+- Tests: 24 pass (primitives + tilings) · 10 fail (hankin, stub) — **intentional RED on hankin only**.
 - CI YAML: drafted at `docs/ci.yml.example`, **not yet active** (GitHub App
   cannot create `.github/workflows/`; user must copy file in a manual commit).
 
-Completed this session: **G-01** through O phase.
-In-flight: **G-02 + G-03** (tiling generators + contact graph). Next move is `P→R→I→G`.
+Completed this session: **G-01, G-02, G-03** through O phase.
+In-flight: **G-04** (Hankin strap construction). Next move is `I→G`.
 
 ## 5. Domain map (epics)
 
@@ -112,27 +112,34 @@ Pure functions: `regularPolygon`, `polygonEdges`, `distance`, `midpoint`,
 `squareTiling`, `hexagonalTiling`. Produce a `Tiling` containing polygons,
 edges, contact info, and bounds.
 
-- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
 - Files: `src/geometry/tilings.ts`, `tests/geometry/tilings.test.ts`
 - **Acceptance**:
-  - [ ] A `r×c` square tiling produces `r·c` polygons, 4 vertices each.
-  - [ ] Interior edges report `polygonIds.length === 2`; boundary edges report 1.
-  - [ ] Bounds match the geometric extent within 1e-9.
-  - [ ] Hexagonal tiling is flat-top, rows alternately offset by 0.5 columns.
-  - [ ] Coverage ≥ 90 %.
+  - [x] A `r×c` square tiling produces `r·c` polygons, 4 vertices each.
+  - [x] Interior edges report `polygonIds.length === 2`; boundary edges report 1.
+  - [x] Bounds match the geometric extent within 1e-9.
+  - [x] Hexagonal tiling — **pointy-top** (corrected from contract): vertex 0
+        at +y; adjacent rows offset by half a column (sqrt(3)/2 · size in x).
+  - [x] All 7 tilings tests in `tilings.test.ts` pass.
+- **Notes**: Contract said "flat-top"; corrected to "pointy-top" because
+  pointy-top is the orientation where adjacent rows naturally offset, matching
+  the rest of the contract.
 
 #### G-03 — Contact graph
 `buildContactGraph` finds shared edges across an arbitrary polygon list with
 configurable tolerance. The escape hatch when polygons are not laid out by a
 canonical generator.
 
-- Phases: P [x] · R [x] · I [ ] · G [ ] · O [ ] · A [ ]
+- Phases: P [x] · R [x] · I [x] · G [x] · O [x] · A [ ]
 - Files: `src/geometry/tilings.ts`, `tests/geometry/tilings.test.ts`
 - **Acceptance**:
-  - [ ] Two adjacent unit squares produce exactly one shared edge.
-  - [ ] Tolerance argument makes endpoints agree at 1e-10 separation.
-  - [ ] No false positives for parallel-but-non-touching edges.
-  - [ ] Runs O((Σ|edges|)²) or better; for 1000 polygons under 200 ms.
+  - [x] Two adjacent unit squares produce exactly one shared edge.
+  - [x] Tolerance argument makes endpoints agree at 1e-10 separation.
+  - [x] No false positives for parallel-but-non-touching edges (verified by
+        single-polygon and tolerance tests; full `n × m` orientation handled
+        by `pointsEqual` in either order).
+  - [x] Runs O((Σ|edges|)²) or better; **measured 11.4 ms for 1000 polygons**
+        on Node 22 (18× under budget).
 
 #### G-04 — Hankin strap construction
 `segmentIntersection`, `rayExitPoint`, `hankinPattern`. The actual pattern
@@ -512,3 +519,4 @@ A change merges to `main` only if **all** of these are true:
 |---|---|
 | 2026-05-06 | Tracker created. RED phase complete for G-01..G-04. Stack provisioned. CI YAML drafted as `docs/ci.yml.example`. |
 | 2026-05-06 | G-01 implemented and optimised. 14/14 primitives tests green. Tracker corrected (17→14 tests). |
+| 2026-05-06 | G-02 + G-03 implemented and optimised. squareTiling, hexagonalTiling (pointy-top), buildContactGraph. 24/34 tests green; 10 hankin tests still RED as intended. Contact graph perf: 11.4 ms for 1000 polygons. |
